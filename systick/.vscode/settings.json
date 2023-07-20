@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "bsp_systick.h": "c",
+        "compare": "c"
+    }
+}

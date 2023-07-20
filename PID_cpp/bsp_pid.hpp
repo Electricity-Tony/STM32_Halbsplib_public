@@ -18,6 +18,14 @@
 
 using namespace std;
 
+typedef struct str_Motor_t
+{
+	str_Motor_t(){}; // 避免创建空对象不成功
+	str_Motor_t(uint16_t a, uint8_t b) : max_mechanical_position(a), Reduction_ratio(b){};
+	uint16_t max_mechanical_position = 8192; //!< 机械角最大值,默认0x2000
+	uint8_t Reduction_ratio = 19;			 //!< 减速比,默认19:1
+} Motor_t;									 //!< 电机(电调)参数结构体，默认值为3508电机及其配套C620电调
+
 // PID可以算pid输出 可以配置pid
 class pid
 {

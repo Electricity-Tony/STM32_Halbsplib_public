@@ -21,11 +21,8 @@ extern "C"
 
 #include "main.h"
 
-#define GPIO_CS_Pin_Name TLE5012_CS_Pin
-#define GPIO_CS_Pin_Type TLE5012_CS_GPIO_Port
 
-#define SPI_CS_ENABLE HAL_GPIO_WritePin(GPIO_CS_Pin_Type, GPIO_CS_Pin_Name, GPIO_PIN_RESET)
-#define SPI_CS_DISABLE HAL_GPIO_WritePin(GPIO_CS_Pin_Type, GPIO_CS_Pin_Name, GPIO_PIN_SET)
+
 
 /* SPI command for TLE5012 */
 #define READ_STATUS 0x8001      // 8000
@@ -49,7 +46,7 @@ extern "C"
 /* Functionality mode */
 #define REFERESH_ANGLE 0
 
-    double ReadAngle(void);
+    float ReadAngle(void);
     uint16_t ReadSpeed(void);
     uint16_t ReadValue(uint16_t u16RegValue);
     uint16_t SPIx_ReadWriteByte(uint16_t byte);
