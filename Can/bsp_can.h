@@ -5,18 +5,18 @@
 
 #include "can.h"
 
-//Ğ¾Æ¬ĞÍºÅºê¶¨ÒåÑ¡Ôñ
+//èŠ¯ç‰‡å‹å·å®å®šä¹‰é€‰æ‹©
 //#define USE_F1XX
 #define USE_F4XX
 
-//ÊÇ·ñÊ¹ÓÃ±ê×¼µç»ú¿âºê¶¨ÒåÑ¡Ôñ
+//æ˜¯å¦ä½¿ç”¨æ ‡å‡†ç”µæœºåº“å®å®šä¹‰é€‰æ‹©
 #define USE_bsp_motor
 
-//Ìõ¼ş±àÒë¿ª¹Øºê¶¨Òå£¬²»ĞèÒª¿ªÆôµÄ¾Í×¢ÊÍµôÏà¹Øºê¶¨Òå
+//æ¡ä»¶ç¼–è¯‘å¼€å…³å®å®šä¹‰ï¼Œä¸éœ€è¦å¼€å¯çš„å°±æ³¨é‡Šæ‰ç›¸å…³å®å®šä¹‰
 //#define	BSP_CAN_USE_FREERTOS
 
 
-//ÍâÉèÏà¹Øºê¶¨Òå,ÒÆÖ²Ê±Èç¹ûĞŞ¸ÄÁËÍâÉèÇëÔÚÕâÀïĞŞ¸Ä
+//å¤–è®¾ç›¸å…³å®å®šä¹‰,ç§»æ¤æ—¶å¦‚æœä¿®æ”¹äº†å¤–è®¾è¯·åœ¨è¿™é‡Œä¿®æ”¹
 #ifdef USE_F4XX
 #define BSP_CAN_USE_CAN1					hcan1
 #define BSP_CAN_USE_CAN2					hcan2
@@ -26,7 +26,7 @@
 #define BSP_CAN_USE_CAN					hcan
 #endif // USE_F1XX
 
-void bsp_can_Init(void);	//CAN×ÜÏß³õÊ¼»¯º¯Êı
-HAL_StatusTypeDef bsp_can_Sendmessage(CAN_HandleTypeDef* hcan,int16_t StdId,int16_t* Can_Send_Data);	//CAN×ÜÏßÊı¾İ·¢ËÍº¯Êı
-void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan);	//ÖØ¶¨ÒåµÄCANÖĞ¶Ï»Øµ÷º¯Êı
+void bsp_can_Init(void);	//CANæ€»çº¿åˆå§‹åŒ–å‡½æ•°
+HAL_StatusTypeDef bsp_can_Sendmessage(CAN_HandleTypeDef* hcan,int16_t StdId,int16_t* Can_Send_Data);	//CANæ€»çº¿æ•°æ®å‘é€å‡½æ•°
+void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan);	//é‡å®šä¹‰çš„CANä¸­æ–­å›è°ƒå‡½æ•°
 #endif
