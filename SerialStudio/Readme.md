@@ -4,7 +4,7 @@
 
  * @外设相关：<font color=Red>serialstudio</font >
 
-   @版本：<font color=Red>1.0</font >
+   @版本：<font color=Red>1.1</font >
 
    @维护：<font color=Red>Tony_Wang</font >
 
@@ -16,6 +16,7 @@
    | 版本                               |                             更新时间                             |功能|
    | :--------------------------------- | :----------------------------------------------------------: | :----------------------------------------------------------: |
    | <font color=DeepSkyBlue>1.0</font> | <font color=DeepSkyBlue>2023-7-17</font> |<font color=DeepSkyBlue>成功解读 serialstudio 通讯协议，移植到stm单片机</font>|
+   | <font color=DeepSkyBlue>1.1</font> | <font color=DeepSkyBlue>2023-7-24</font> |<font color=DeepSkyBlue>修护爆flash情况，new需要重定义为较小占用的函数，添加依赖的dep库</font>|
 
  ## 2 文件介绍
 
@@ -272,5 +273,37 @@ serial_test.send_frame();
  ## 6 其他注意
 
 * 本来通过 pringf 或者 c++ 的 string 可以很方便的对浮点型转化为字符串和数据帧拼接，但是实测发现，<font color='yellow'>重定向串口后会占用20kb的flash空间，调用sting后直接占用60kb，对于f103c8来说存储根本不够</font>，因此整个过程只能手写程序完成。
+* V1.1 版本增加 new 和 delete 的重定义，放置在 dep.cpp 文件中
+
+```cpp
+/* 使用 cpp 特性 new 与 delete 需要调用的代码 */
+void *operator new(size_t size)
+{
+	/* 声明返回的指针 */
+	void *res;
+	/* 输入是指针强行带一个地址 */
+	if (size == 0)
+	{
+		size = 1;
+	}
+	/* 拷贝地址 */
+	res = malloc(size);
+	// 检查是否拷贝完全
+	while (1)
+	{
+		if (res)
+		{
+			break;
+		}
+	}
+	return res;
+}
+void operator delete(void *p)
+{
+	free(p);
+}
+```
+
+
 
  
