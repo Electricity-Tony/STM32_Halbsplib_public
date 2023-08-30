@@ -13,7 +13,6 @@
   V1.4 重构重定向，新增使用 platformio 时的新的重定向功能
  */
 #include "bsp_usart.hpp"
-#include "usart.h"
 
 #include <stdarg.h>
 

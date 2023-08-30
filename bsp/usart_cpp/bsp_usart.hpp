@@ -9,7 +9,7 @@
 #define __BSP_USART_HPP
 #include "stm32f1xx.h"
 #include "Memory_cpp/bsp_memory.hpp"
-
+#include "usart.h"
 /* 重定向头文件 */
 #include <stdio.h>
 

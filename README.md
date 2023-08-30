@@ -18,7 +18,13 @@ stm32Cubemx驱动库
 
 > [timer](./task/timer/) " v1.0"
 
-## 3. bsp 驱动库
+## 3 app 应用库
+
+* 应用于集成了相关 bsp 功能的库，实现相应的应用
+
+  > [app_usartcmd](./app/usartcmd) " v1.0" {基于串口实现串口控制}
+
+## 4. bsp 驱动库
 
 ### 基于普通 io 的库
 

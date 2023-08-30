@@ -110,7 +110,7 @@ pop_push_state fifo::pop(uint8_t *out_data)
 	else
 	{
 		*out_data = this->buffer_ptr[this->read_index];
-		this->read_index = (this->read_index + 1) % this->read_index;
+		this->read_index = (this->read_index + 1) % this->size;
 		this->free_size--;
 		return POP_PUSH_SUCCESS;
 	}
