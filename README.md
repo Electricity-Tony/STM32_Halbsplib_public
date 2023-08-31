@@ -39,7 +39,7 @@ stm32Cubemx 驱动库
 
 ### 基于 adc 的库
 
-> [bsp_adc](./bsp/ADC/) " v1.1"
+> [bsp_adc](./bsp/adc_cpp/) " v2.0"
 
 ### 基于定时器的库
 
