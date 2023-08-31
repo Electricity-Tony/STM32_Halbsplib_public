@@ -1,19 +1,19 @@
 /**
  * @file app_StepMotor.c
- * @brief StepMotor°å¼¶Ö§³Ö°ü
+ * @brief StepMotoræ¿çº§æ”¯æŒåŒ…
  * @author Tony_Wang
  * @version 1.0
  * @date 2022-3-11
  * @copyright 
- * @par ÈÕÖ¾:
- *   V1.0 »ùÓÚbsp_StepMotor¿ª·¢µÄÓ¦ÓÃ²ã
+ * @par æ—¥å¿—:
+ *   V1.0 åŸºäºbsp_StepMotorå¼€å‘çš„åº”ç”¨å±‚
  *	 V1.1 
  *	 V1.2 
  */		
 
 
 
-#define TORADIAN   0.0174533f                //×ª»»Îª»¡¶ÈÖÆ£¬ËÄÔªÊıµÄ×ËÌ¬½âËãĞèÒªÊ¹ÓÃ ¦Ğ/180
+#define TORADIAN   0.0174533f                //è½¬æ¢ä¸ºå¼§åº¦åˆ¶ï¼Œå››å…ƒæ•°çš„å§¿æ€è§£ç®—éœ€è¦ä½¿ç”¨ Ï€/180
 
 #include "app_StepMotor.h"
 #include "bsp_StepMotor.hpp"
@@ -22,8 +22,8 @@
 
 
 
-#define Gear_ratio_1 0.0888889	//	80mm¶ÔÓ¦²½½øµç»ú1Ğı×ª360¶È£¬Áí¼ÓÍâÖÃ¼õËÙ±È2.5
-#define Gear_ratio_2 0.2222222			//	80mm¶ÔÓ¦²½½øµç»ú1Ğı×ª360¶È
+#define Gear_ratio_1 0.0888889	//	80mmå¯¹åº”æ­¥è¿›ç”µæœº1æ—‹è½¬360åº¦ï¼Œå¦åŠ å¤–ç½®å‡é€Ÿæ¯”2.5
+#define Gear_ratio_2 0.2222222			//	80mmå¯¹åº”æ­¥è¿›ç”µæœº1æ—‹è½¬360åº¦
 
 #define x_max 760
 #define x_min 0
@@ -33,11 +33,11 @@
 Position_Typedef position;
 
 /** 
-	* @brief  ²½½øµç»úÍê³ÉÂö³åÊı×ª»¯Îª×ø±ê
-	* @warning ±ØĞëÍ¨¹ı
+	* @brief  æ­¥è¿›ç”µæœºå®Œæˆè„‰å†²æ•°è½¬åŒ–ä¸ºåæ ‡
+	* @warning å¿…é¡»é€šè¿‡
 	* @retval  void
 	* @note void
-	* @par ÈÕÖ¾   
+	* @par æ—¥å¿—   
 	*  
 	*
 */
@@ -52,11 +52,11 @@ void app_StepMotor_position_convert(void)
 
 
 /** 
-	* @brief  ²½½øµç»ú³õÊ¼»¯
-	* @warning ±ØĞëÍ¨¹ı
+	* @brief  æ­¥è¿›ç”µæœºåˆå§‹åŒ–
+	* @warning å¿…é¡»é€šè¿‡
 	* @retval  void
-	* @note ½øĞĞ²½½øµç»úĞèÒªµÄ³õÊ¼»¯
-	* @par ÈÕÖ¾   
+	* @note è¿›è¡Œæ­¥è¿›ç”µæœºéœ€è¦çš„åˆå§‹åŒ–
+	* @par æ—¥å¿—   
 	*  
 	*
 */
@@ -68,11 +68,11 @@ void app_StepMotor_init(void)
 
 
 /** 
-	* @brief  µ¥¸ö²½½øµç»úÎ»ÖÃ¸´Î»
-	* @warning ±ØĞëÍ¨¹ı
-	* @retval  ²½½øµç»úÀà£¬Ğı×ª·½Ïò£¬¹âµçÃÅ
-	* @note Í¨¹ı¹âµçÃÅ¶Ô²½½øµç»ú½øĞĞÎ»ÖÃ¸´Î»
-	* @par ÈÕÖ¾   
+	* @brief  å•ä¸ªæ­¥è¿›ç”µæœºä½ç½®å¤ä½
+	* @warning å¿…é¡»é€šè¿‡
+	* @retval  æ­¥è¿›ç”µæœºç±»ï¼Œæ—‹è½¬æ–¹å‘ï¼Œå…‰ç”µé—¨
+	* @note é€šè¿‡å…‰ç”µé—¨å¯¹æ­¥è¿›ç”µæœºè¿›è¡Œä½ç½®å¤ä½
+	* @par æ—¥å¿—   
 	*  
 	*
 */
@@ -82,18 +82,18 @@ uint8_t app_StepMotor_reset(stepmotor* stepmotor_in,uint8_t DIR,Key* Key_in)
 	if(Key_in->State == 1) 
 	{
 		stepmotor_in->rotate_with_Pulse(DIR,10);
-		return 1;	//¹âµçÃÅÎ´±»´¥·¢
+		return 1;	//å…‰ç”µé—¨æœªè¢«è§¦å‘
 	}
-	else return 0;									//¹âµçÃÅ´¥·¢
+	else return 0;									//å…‰ç”µé—¨è§¦å‘
 	
 }
 
 /** 
-	* @brief  ËùÒÔ²½½øµç»úÎ»ÖÃ¸´Î»
-	* @warning ±ØĞëÍ¨¹ı
+	* @brief  æ‰€ä»¥æ­¥è¿›ç”µæœºä½ç½®å¤ä½
+	* @warning å¿…é¡»é€šè¿‡
 	* @retval  void
-	* @note ¶ÔËùÓĞ²½½øµç»ú¸´Î»£¬¸´Î»½áÊøÇ°Îª×èÈû×´Ì¬
-	* @par ÈÕÖ¾   
+	* @note å¯¹æ‰€æœ‰æ­¥è¿›ç”µæœºå¤ä½ï¼Œå¤ä½ç»“æŸå‰ä¸ºé˜»å¡çŠ¶æ€
+	* @par æ—¥å¿—   
 	*  
 	*
 */
@@ -112,11 +112,11 @@ void app_StepMotor_allreset(void)
 }
 
 /** 
-	* @brief  ¿ØÖÆ²½½øµç»ú´ø¶¯Í¬²½´øÒÆ¶¯Ïà¶Ô¾àÀë
-	* @warning ±ØĞëÍ¨¹ı
-	* @retval  ²½½øµç»úÀà£¬Í¬²½´ø´«¶¯±È,ÒÆ¶¯¾àÀë£¨mm£¬º¬Õı¸º£©
+	* @brief  æ§åˆ¶æ­¥è¿›ç”µæœºå¸¦åŠ¨åŒæ­¥å¸¦ç§»åŠ¨ç›¸å¯¹è·ç¦»
+	* @warning å¿…é¡»é€šè¿‡
+	* @retval  æ­¥è¿›ç”µæœºç±»ï¼ŒåŒæ­¥å¸¦ä¼ åŠ¨æ¯”,ç§»åŠ¨è·ç¦»ï¼ˆmmï¼Œå«æ­£è´Ÿï¼‰
 	* @note 
-	* @par ÈÕÖ¾   
+	* @par æ—¥å¿—   
 	*  
 	*
 */
@@ -140,11 +140,11 @@ void app_StepMotor_rotate_with_Length(stepmotor* stepmotor_in,float Gear_ratio,f
 
 
 /** 
-	* @brief  ¿ØÖÆ²½½øµç»ú´ø¶¯Í¬²½´øÒÆ¶¯ ÖÁ¾ø¶ÔÎ»ÖÃ
-	* @warning ±ØĞëÍ¨¹ı
+	* @brief  æ§åˆ¶æ­¥è¿›ç”µæœºå¸¦åŠ¨åŒæ­¥å¸¦ç§»åŠ¨ è‡³ç»å¯¹ä½ç½®
+	* @warning å¿…é¡»é€šè¿‡
 	* @retval  Target_x,Target_y
 	* @note 
-	* @par ÈÕÖ¾   
+	* @par æ—¥å¿—   
 	*  
 	*
 */
@@ -170,11 +170,11 @@ void app_StepMotor_move_with_position(float Target_x,float Target_y)
 
 
 /** 
-	* @brief  °´¼ü¿ØÖÆÍ¬²½´øÒÆ¶¯
-	* @warning ±ØĞëÍ¨¹ı
-	* @retval  ²½½øµç»úÀà£¬Í¬²½´ø´«¶¯±È,ÒÆ¶¯¾àÀë£¨mm£©
+	* @brief  æŒ‰é”®æ§åˆ¶åŒæ­¥å¸¦ç§»åŠ¨
+	* @warning å¿…é¡»é€šè¿‡
+	* @retval  æ­¥è¿›ç”µæœºç±»ï¼ŒåŒæ­¥å¸¦ä¼ åŠ¨æ¯”,ç§»åŠ¨è·ç¦»ï¼ˆmmï¼‰
 	* @note 
-	* @par ÈÕÖ¾   
+	* @par æ—¥å¿—   
 	*  
 	*
 */

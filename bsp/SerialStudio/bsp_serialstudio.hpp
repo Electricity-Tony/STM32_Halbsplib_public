@@ -1,12 +1,13 @@
 /**
- * @file bsp_serialstudio.hpp
+ * @file bsp_serialstudio.cpp
  * @brief serialstudio 应用级支持包
  * @author Tony_Wang
- * @version 1.0
- * @date 2023-7-17
+ * @version 1.1
+ * @date 2023-8-31
  * @copyright
  * @par 日志:
  *   V1.0 成功解读 serialstudio 通讯协议，移植到stm单片机
+ *   V1.1 修改缓存区为连接外部数组，改为串口DMA发送
  *
  */
 
@@ -16,6 +17,7 @@
 /* 包含头文件 ----------------------------------------------------------------*/
 #include "stm32f1xx_hal.h"
 #include "stm32f1xx.h"
+#include "dep.hpp"
 
 /* 类型定义 ------------------------------------------------------------------*/
 /* 宏定义 --------------------------------------------------------------------*/
@@ -23,7 +25,6 @@
 /* serialdebug 串口绘图类声明---------------------------------------------------------------- */
 class serialdebug
 {
-
 public:
 	/* 声明链表类，用来管理数据 */
 	struct data_LinkedNode
@@ -40,6 +41,7 @@ public:
 	// 成员函数
 	serialdebug(UART_HandleTypeDef *_huart, uint16_t data_size);
 	// ~serialdebug();
+	void check_frame_length(void);				// 帧长度检查
 	void add_LinkedNode_AtTail(int val);		// 在末尾添加一个节点
 	void config_data(float data_in, int index); // 转接发送的数据至data[]数组
 	void send_frame(void);						// 发送一帧数据
@@ -53,6 +55,7 @@ protected:
 private:
 	data_LinkedNode *_datadummyHead; // ；链表虚拟头结点
 	uint8_t frame_length;			 // 发送一帧数据的字符串长度
+	uint8_t frame[102];				 // 发送的帧，由于DMA中必须使用全局变量，使用变长数组太麻烦了，因此必须使用一个定长数组，根据需求调整大小
 	uint8_t decimals = 8;			 // 小数位数
 };
 

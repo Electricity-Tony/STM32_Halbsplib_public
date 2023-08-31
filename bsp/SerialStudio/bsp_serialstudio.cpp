@@ -2,11 +2,12 @@
  * @file bsp_serialstudio.cpp
  * @brief serialstudio 应用级支持包
  * @author Tony_Wang
- * @version 1.0
- * @date 2023-7-17
+ * @version 1.1
+ * @date 2023-8-31
  * @copyright
  * @par 日志:
  *   V1.0 成功解读 serialstudio 通讯协议，移植到stm单片机
+ *   V1.1 修改缓存区为连接外部数组，改为串口DMA发送
  *
  */
 
@@ -14,22 +15,18 @@
  * 协议包括：帧头，分割字符，帧尾
  * 由于串口重定向会占用很多flash ，所以需要编写一个不利用 printf 的库
  * 帧样例 /*1.34572892 7654.9835 -25.7865368 0.0003871*/
- /**/
+/**/
 
 /* 包含头文件 ----------------------------------------------------------------*/
 #include "bsp_serialstudio.hpp"
-// #include "Usart/bsp_usart.h"
+#include "usart/bsp_usart.hpp"
 #include "usart.h"
-#include <string.h>
-#include <math.h>
 
 /* 私有类型定义 --------------------------------------------------------------*/
 
 #define WEAK __attribute__((weak)) // 使用WEAK类型是方便特殊电机来重构特定函数
 
-serialdebug serial_test(&huart1, 2);
-
-
+serialdebug serial_test(&huart1, 6);
 
 ////******************************************* serialdebug 串口绘图类声明*************************************************************************////
 /**
@@ -55,6 +52,26 @@ WEAK serialdebug::serialdebug(UART_HandleTypeDef *_huart, uint16_t data_size)
 		+ (data_size - 1) * sizeof(frame_separator) / sizeof(frame_separator[0]) // 分隔符占得长度
 		+ sizeof(frame_start) / sizeof(frame_start[0])							 // 帧头占得长度
 		+ sizeof(frame_end) / sizeof(frame_end[0]);								 // 帧尾占得长度
+}
+
+/**
+ * @brief    帧长度检查
+ * @details  串口输出帧长度情况
+ * @param
+ * @return
+ */
+void serialdebug::check_frame_length(void)
+{
+	HAL_Delay(100);
+	printf("the total frame_length is %d\r\n", this->frame_length);
+	HAL_Delay(100);
+	printf("set the length of the frame is %d\r\n", sizeof(frame) / sizeof(frame[0]));
+	if (frame_length > sizeof(frame) / sizeof(frame[0]))
+	{
+		// frame 长度超限准备做的事
+		HAL_Delay(100);
+		printf("Warning! the length mast be higher\r\n");
+	}
 }
 
 /**
@@ -99,8 +116,8 @@ void serialdebug::config_data(float data_in, int index)
 void serialdebug::send_frame(void)
 {
 	data_LinkedNode *curHead = _datadummyHead;
-	uint8_t frame[frame_length]; // 准备用来发送的一帧
-	uint8_t frame_index = 0;	 // 用于记录frame的索引
+	// uint8_t frame[frame_length]; // 准备用来发送的一帧
+	uint8_t frame_index = 0; // 用于记录frame的索引
 	/* 添加帧头 */
 	memset(frame, 0x00, sizeof(frame));
 	memcpy(frame, frame_start, sizeof(frame_start));
@@ -180,5 +197,6 @@ void serialdebug::send_frame(void)
 	memcpy(frame + frame_index, frame_end, sizeof(frame_end) / sizeof(frame_end[0]));
 	frame_index = frame_index + sizeof(frame_end) / sizeof(frame_end[0]);
 
-	HAL_UART_Transmit(_huart, (uint8_t *)&frame, sizeof(frame) / sizeof(frame[0]), 0xFFFF);
+	// HAL_UART_Transmit(_huart, (uint8_t *)&frame, sizeof(frame) / sizeof(frame[0]), 0xFFFF);
+	HAL_UART_Transmit_DMA(_huart, (uint8_t *)&frame, sizeof(frame) / sizeof(frame[0]));
 }

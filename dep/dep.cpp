@@ -1,16 +1,15 @@
 /**
  * @file dep.cpp
- * @brief dep 
+ * @brief dep
  * @author Tony_Wang
  * @version 1.1
- * @date 2023-7-24
+ * @date 2023-8-31
  * @copyright
  * @par 日志:
  *   V1.0 为保证所有库需要依赖的文件都包含，将所有依赖文件独立成dep库
+ *   V1.1 增加角度单位转换
  *
  */
-
-
 
 /* 包含头文件 ----------------------------------------------------------------*/
 #include "dep.hpp"
@@ -21,7 +20,7 @@
  * @brief  new 与 delete 重定义
  * @details	放置自带的 new 占用过大，爆flash
  * @param
- * @retval 
+ * @retval
  */
 /* 使用 cpp 特性 new 与 delete 需要调用的代码 */
 void *operator new(size_t size)
@@ -52,9 +51,9 @@ void operator delete(void *p)
 
 /**
  * @brief  获取滴答定时器的微秒级定时
- * @details	
+ * @details
  * @param
- * @retval 
+ * @retval
  */
 /* getCurrentMicros()函数用于获取自MCU复位以来的运行时间，单位微秒，
 	这个函数的实质还是使用了系统滴答定时器，

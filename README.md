@@ -1,8 +1,8 @@
-# STM32_Halbsplib_public
+# STM32_Halbsplib
 
-stm32Cubemx驱动库
+stm32Cubemx 驱动库
 
-* 包含的现存的所有stm32库，基于Hal库版本编写，便于针对所有stm32项目能快速搭建框架进行使用，该版本是可以公开的版本
+- 包含的现存的所有 stm32 库，基于 Hal 库版本编写，便于针对所有 stm32 项目能快速搭建框架进行使用
 
 **所有库快速链接**
 
@@ -10,7 +10,7 @@ stm32Cubemx驱动库
 
 * 目前很多库都可能用到依赖，建议每次调用库报错的时候，先检查是否调用了依赖
 
-> [dep](./dep/) " v1.0"
+> [dep](./dep/) " v1.1"
 
 ## 2. task 功能库
 
@@ -25,6 +25,7 @@ stm32Cubemx驱动库
   > [app_usartcmd](./app/usartcmd) " v1.0" {基于串口实现串口控制}
 
 ## 4. bsp 驱动库
+
 
 ### 基于普通 io 的库
 
@@ -42,6 +43,7 @@ stm32Cubemx驱动库
 
 ### 基于定时器的库
 
+
 > [bsp_StepMotor](./bsp/StepMotor/) " v1.0"
 >
 > [bsp_StepMotor_cpp](./bsp/StepMotor_cpp/) " v1.2"
@@ -52,7 +54,7 @@ stm32Cubemx驱动库
 >
 > [bsp_servo_cpp](./bsp/Servo_cpp/) " v1.2"
 >
-> [bsp_foc](./bsp/foc_cpp/) " v1.0"
+> [bsp_foc](./bsp/foc_cpp/) " v1.1"
 
 ### 基于 i2c 的库
 
@@ -85,6 +87,7 @@ stm32Cubemx驱动库
 
 
 
+
 ### 基于 usb 的库
 
 > [bsp_myusbd_hid](./bsp/Keyboard/) " v1.0 这个还是个半成品"
@@ -96,8 +99,3 @@ stm32Cubemx驱动库
 > [bsp_memory_cpp](./bsp/Memory_cpp/) " v1.1"
 >
 > [bsp_pid](./bsp/PID.cpp/) " v1.0"
-
-
-
-
-

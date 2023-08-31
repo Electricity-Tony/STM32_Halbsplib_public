@@ -46,7 +46,7 @@
 ```cpp
 void USART_Debug_DMA_Init(void)
 {
-    HAL_UARTEx_ReceiveToIdle_DMA(fusart_Debug, RxDebugBuffer, sizeof(RxDebugBuffer));
+	HAL_UARTEx_ReceiveToIdle_DMA(fusart_Debug, RxDebugBuffer, sizeof(RxDebugBuffer));
 	__HAL_UART_ENABLE_IT(fusart_Debug, UART_IT_IDLE); // 使能串口空闲中断
 	HAL_UART_Transmit_DMA(fusart_Debug, (uint8_t *)&aTxDebugBuffer, sizeof(aTxDebugBuffer) / sizeof(aTxDebugBuffer[0]));
 }

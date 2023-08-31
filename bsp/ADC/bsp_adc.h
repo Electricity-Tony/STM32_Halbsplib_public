@@ -1,13 +1,13 @@
 /**
  * @file bsp_adc.c
- * @brief »ù±¾´®¿ÚÖ§³Ö°ü
+ * @brief åŸºæœ¬ä¸²å£æ”¯æŒåŒ…
  * @author Tony_Wang
  * @version 1.0
  * @date 2022-3-21
  * @copyright 
- * @par ÈÕÖ¾:
- *   V1.0 »ù±¾CubeÅäÖÃDMAÅäÖÃ
- *	 V1.1 Ôö¼Ó²â²»×¼ĞŞ¸ÄµÄÅäÖÃÎÄ¼ş
+ * @par æ—¥å¿—:
+ *   V1.0 åŸºæœ¬Cubeé…ç½®DMAé…ç½®
+ *	 V1.1 å¢åŠ æµ‹ä¸å‡†ä¿®æ”¹çš„é…ç½®æ–‡ä»¶
  */
 
  
@@ -18,14 +18,14 @@
 
 #include "main.h"
 
-//ÉèÖÃÖØ¶¨ÏòadcÍ¨µÀ
-#define fadc &hadc1               //ÖØ¶¨ÏòÖÁadc1 
+//è®¾ç½®é‡å®šå‘adcé€šé“
+#define fadc &hadc1               //é‡å®šå‘è‡³adc1 
 
-//adc¹Ø¼üÊı¾İÉèÖÃ
+//adcå…³é”®æ•°æ®è®¾ç½®
 enum  __adc_date
 {
-	Sampling_number = 2,			//²ÉÑùÍ¨µÀÊıÁ¿
-	Sampling_times = 12,	//Ã¿¸öÍ¨µÀ²ÉÑù´ÎÊı
+	Sampling_number = 2,			//é‡‡æ ·é€šé“æ•°é‡
+	Sampling_times = 12,	//æ¯ä¸ªé€šé“é‡‡æ ·æ¬¡æ•°
 	
 };	
 

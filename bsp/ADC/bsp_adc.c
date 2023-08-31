@@ -1,13 +1,13 @@
 /**
  * @file bsp_adc.c
- * @brief »ù±¾´®¿ÚÖ§³Ö°ü
+ * @brief åŸºæœ¬ä¸²å£æ”¯æŒåŒ…
  * @author Tony_Wang
  * @version 1.0
  * @date 2022-3-21
  * @copyright 
- * @par ÈÕÖ¾:
- *   V1.0 »ù±¾CubeÅäÖÃDMAÅäÖÃ
- *	 V1.1 Ôö¼Ó²â²»×¼ĞŞ¸ÄµÄÅäÖÃÎÄ¼ş
+ * @par æ—¥å¿—:
+ *   V1.0 åŸºæœ¬Cubeé…ç½®DMAé…ç½®
+ *	 V1.1 å¢åŠ æµ‹ä¸å‡†ä¿®æ”¹çš„é…ç½®æ–‡ä»¶
  */
 
 
@@ -21,7 +21,7 @@ uint32_t bsp_adc_date[Sampling_number];
 
 
 /**
-* @brief  ³õÊ¼»¯adc dmp²ÉÑù¿ªÊ¼
+* @brief  åˆå§‹åŒ–adc dmpé‡‡æ ·å¼€å§‹
 * @details  
 * @param  
 * @retval  
@@ -34,9 +34,9 @@ void bsp_adc_init(void)
 
 
 /**
-* @brief  ½«ËùÓĞÒÑ²ÉÑùadcÊı¾İÇå³ı
+* @brief  å°†æ‰€æœ‰å·²é‡‡æ ·adcæ•°æ®æ¸…é™¤
 * @details  
-* @param  uint32_t adc_date[] ĞèÒªÇå³ıµÄadcÊı¾İ
+* @param  uint32_t adc_date[] éœ€è¦æ¸…é™¤çš„adcæ•°æ®
 * @retval  
 */
 void bsp_adc_date_clear(uint32_t adc_date[])
@@ -51,9 +51,9 @@ void bsp_adc_date_clear(uint32_t adc_date[])
 
 
 /**
-* @brief  »ñÈ¡²ÉÑùadcÊı¾İ
+* @brief  è·å–é‡‡æ ·adcæ•°æ®
 * @details  
-* @param  uint32_t adc_date[] ´æÈëµÄadc»ñÈ¡Êı¾İ
+* @param  uint32_t adc_date[] å­˜å…¥çš„adcè·å–æ•°æ®
 * @retval  
 */
 void bsp_adc_date_update(uint32_t adc_date[])

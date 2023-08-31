@@ -1,24 +1,24 @@
 /**
  * @file bsp_StepMotor.cpp
- * @brief StepMotor°å¼¶Ö§³Ö°ü
+ * @brief StepMotoræ¿çº§æ”¯æŒåŒ…
  * @author Tony_Wang
  * @version 1.2
  * @date 2022-3-11
  * @copyright 
- * @par ÈÕÖ¾:
- *   V1.0 »ù±¾CubeÅäÖÃÏà¹ØËµÃ÷
- *	 V1.1 ½«PWM´¥·¢·½Ê½ĞŞ¸ÄÎªÊä³ö±È½Ï·½Ê½£¬¿ÉÒÔÊ¹Í¬Ò»Ê±ÖÓÏÂ²»Í¬¶Ë¿ÚÊµÏÖ²»Í¬ÆµÂÊµÄÂö³å
- *	 V1.2 Î¬»¤Á½´ÎÖĞ¶Ï1´ÎÂö³åbug£¬ĞÂÔöCompleted_pulse±äÁ¿ÓÃÓÚ¾ÍËãÎ»ÖÃ
+ * @par æ—¥å¿—:
+ *   V1.0 åŸºæœ¬Cubeé…ç½®ç›¸å…³è¯´æ˜
+ *	 V1.1 å°†PWMè§¦å‘æ–¹å¼ä¿®æ”¹ä¸ºè¾“å‡ºæ¯”è¾ƒæ–¹å¼ï¼Œå¯ä»¥ä½¿åŒä¸€æ—¶é’Ÿä¸‹ä¸åŒç«¯å£å®ç°ä¸åŒé¢‘ç‡çš„è„‰å†²
+ *	 V1.2 ç»´æŠ¤ä¸¤æ¬¡ä¸­æ–­1æ¬¡è„‰å†²bugï¼Œæ–°å¢Completed_pulseå˜é‡ç”¨äºå°±ç®—ä½ç½®
  */		
  
  
-/* °üº¬Í·ÎÄ¼ş ----------------------------------------------------------------*/
+/* åŒ…å«å¤´æ–‡ä»¶ ----------------------------------------------------------------*/
 #include "bsp_StepMotor.hpp"
 #include "tim.h"
 #include "math.h"
-/* Ë½ÓĞÀàĞÍ¶¨Òå --------------------------------------------------------------*/
+/* ç§æœ‰ç±»å‹å®šä¹‰ --------------------------------------------------------------*/
 
-#define WEAK __attribute__((weak)) //Ê¹ÓÃWEAKÀàĞÍÊÇ·½±ãÀ´ÖØ¹¹ÌØ¶¨º¯Êı
+#define WEAK __attribute__((weak)) //ä½¿ç”¨WEAKç±»å‹æ˜¯æ–¹ä¾¿æ¥é‡æ„ç‰¹å®šå‡½æ•°
 #define	ABS(x)   ((x)>0?(x):-(x))
 
 using namespace std;
@@ -28,7 +28,7 @@ stepmotor stepmotor1 (StepM1_Dir_GPIO_Port,StepM1_Dir_Pin,&htim2,TIM_CHANNEL_1,1
 stepmotor stepmotor2 (StepM2_Dir_GPIO_Port,StepM2_Dir_Pin,&htim2,TIM_CHANNEL_2,1600,500,StepM2_EN_GPIO_Port,StepM2_EN_Pin);
 
 
-/////**************************************	Êä³ö±È½ÏÖĞ¶Ïº¯Êı	*****************************************************************/////
+/////**************************************	è¾“å‡ºæ¯”è¾ƒä¸­æ–­å‡½æ•°	*****************************************************************/////
 void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	stepmotor1.TIMupdate(htim);
@@ -37,15 +37,15 @@ void HAL_TIM_OC_DelayElapsedCallback(TIM_HandleTypeDef *htim)
 
 
 
-////******************************************* stepmotorµç»úÀà *************************************************************************////
+////******************************************* stepmotorç”µæœºç±» *************************************************************************////
 /**
-	* @brief  stepmotorµç»úÀà
-	* @param [in] DIR_Port			·½ÏòIO¶ËºÅ
-	* @param [in]	DIR_Pin				·½ÏòIOÍ¨µÀºÅ
-	* @param [in]	htim					Ê¹ÓÃÊ±ÖÓ¶ËºÅ
-	* @param [in]	TIM_CHANNEL		Ê¹ÓÃÊ±ÖÓÍ¨µÀ
-	* @param [in]	Pulse_Equivalent			Âö³åµ±Á¿
-	* @param [in]	CCR_Per			Êä³ö±È½ÏÃ¿´ÎÔö¼ÓµÄCCRÖµ
+	* @brief  stepmotorç”µæœºç±»
+	* @param [in] DIR_Port			æ–¹å‘IOç«¯å·
+	* @param [in]	DIR_Pin				æ–¹å‘IOé€šé“å·
+	* @param [in]	htim					ä½¿ç”¨æ—¶é’Ÿç«¯å·
+	* @param [in]	TIM_CHANNEL		ä½¿ç”¨æ—¶é’Ÿé€šé“
+	* @param [in]	Pulse_Equivalent			è„‰å†²å½“é‡
+	* @param [in]	CCR_Per			è¾“å‡ºæ¯”è¾ƒæ¯æ¬¡å¢åŠ çš„CCRå€¼
 	*
 */
 WEAK stepmotor::stepmotor(GPIO_TypeDef* DIR_Port,uint16_t DIR_Pin,
@@ -66,8 +66,8 @@ WEAK stepmotor::stepmotor(GPIO_TypeDef* DIR_Port,uint16_t DIR_Pin,
 
 WEAK void stepmotor::step_init(void)
 {
-	HAL_TIM_Base_Start_IT(htim);//Ê¹ÄÜÊ¹ÓÃµÄ¶¨Ê±Æ÷
-	HAL_TIM_OC_Start_IT(htim,TIM_CHANNEL);//Ê¹ÄÜÊä³ö±È½ÏµÄÍ¨µÀ
+	HAL_TIM_Base_Start_IT(htim);//ä½¿èƒ½ä½¿ç”¨çš„å®šæ—¶å™¨
+	HAL_TIM_OC_Start_IT(htim,TIM_CHANNEL);//ä½¿èƒ½è¾“å‡ºæ¯”è¾ƒçš„é€šé“
 	HAL_TIM_OC_Stop(htim, TIM_CHANNEL);
 	setEN(Enable);
 	setPulse();
@@ -76,10 +76,10 @@ WEAK void stepmotor::step_init(void)
 }
 
 /**
-  * º¯Êı¹¦ÄÜ: ÉèÖÃ²½½øµç»ú×ªÏò
-  * ÊäÈë²ÎÊı:DIR	Positive/Reverse
-  * ·µ »Ø Öµ: 
-  * Ëµ    Ã÷£º
+  * å‡½æ•°åŠŸèƒ½: è®¾ç½®æ­¥è¿›ç”µæœºè½¬å‘
+  * è¾“å…¥å‚æ•°:DIR	Positive/Reverse
+  * è¿” å› å€¼: 
+  * è¯´    æ˜ï¼š
   */
 WEAK void stepmotor::setDIR(uint8_t DIR)
 {	
@@ -92,10 +92,10 @@ WEAK void stepmotor::setDIR(uint8_t DIR)
 
 
 /**
-  * º¯Êı¹¦ÄÜ: ÉèÖÃ²½½øµç»úÊ¹ÄÜ
-  * ÊäÈë²ÎÊı: EN	Enable/Disable
-  * ·µ »Ø Öµ: 
-  * Ëµ    Ã÷£º
+  * å‡½æ•°åŠŸèƒ½: è®¾ç½®æ­¥è¿›ç”µæœºä½¿èƒ½
+  * è¾“å…¥å‚æ•°: EN	Enable/Disable
+  * è¿” å› å€¼: 
+  * è¯´    æ˜ï¼š
   */
 WEAK void stepmotor::setEN(uint8_t EN)
 {
@@ -105,15 +105,15 @@ WEAK void stepmotor::setEN(uint8_t EN)
 
 
 /**
-  * º¯Êı¹¦ÄÜ: ¿ª¹Ø²½½øµç»úpwmÊä³ö
-  * ÊäÈë²ÎÊı: start Enable/Disable
-  * ·µ »Ø Öµ: 
-  * Ëµ    Ã÷£º
+  * å‡½æ•°åŠŸèƒ½: å¼€å…³æ­¥è¿›ç”µæœºpwmè¾“å‡º
+  * è¾“å…¥å‚æ•°: start Enable/Disable
+  * è¿” å› å€¼: 
+  * è¯´    æ˜ï¼š
   */
 WEAK void stepmotor::start(uint8_t start)
 {
-	//if(start) HAL_TIM_PWM_Start_IT(htim, TIM_CHANNEL);//ĞŞ¸ÄÊä³ö±È½ÏÉ¾È¥
-	if(start) HAL_TIM_OC_Start(htim, TIM_CHANNEL);	//¿ªÆôÊä³ö±È½ÏÍ¨µÀ
+	//if(start) HAL_TIM_PWM_Start_IT(htim, TIM_CHANNEL);//ä¿®æ”¹è¾“å‡ºæ¯”è¾ƒåˆ å»
+	if(start) HAL_TIM_OC_Start(htim, TIM_CHANNEL);	//å¼€å¯è¾“å‡ºæ¯”è¾ƒé€šé“
 	else HAL_TIM_OC_Stop(htim, TIM_CHANNEL);
 	
 }
@@ -122,24 +122,24 @@ WEAK void stepmotor::start(uint8_t start)
 
 
 /**
-  * º¯Êı¹¦ÄÜ: ÉèÖÃ²½½øµç»úÃ¿¸öÂö³åµÄCCRÖĞ¶ÏÖµ
-  * ÊäÈë²ÎÊı: 
-  * ·µ »Ø Öµ: 
-  * Ëµ    Ã÷£º¸Ãº¯ÊıÓÃÓÚ·ÅÔÚÖĞ¶ÏÖĞ×Ô¶¯Ö´ĞĞ£¬Ã¿´ÎÖĞ¶Ïºó¸üĞÂÏÂÒ»´ÎÖĞ¶ÏµÄCCRÖµ
+  * å‡½æ•°åŠŸèƒ½: è®¾ç½®æ­¥è¿›ç”µæœºæ¯ä¸ªè„‰å†²çš„CCRä¸­æ–­å€¼
+  * è¾“å…¥å‚æ•°: 
+  * è¿” å› å€¼: 
+  * è¯´    æ˜ï¼šè¯¥å‡½æ•°ç”¨äºæ”¾åœ¨ä¸­æ–­ä¸­è‡ªåŠ¨æ‰§è¡Œï¼Œæ¯æ¬¡ä¸­æ–­åæ›´æ–°ä¸‹ä¸€æ¬¡ä¸­æ–­çš„CCRå€¼
   */
 WEAK void stepmotor::setPulse(void)
 {
-		Pulse =__HAL_TIM_GET_COMPARE(htim,TIM_CHANNEL);	//»ñÈ¡µ±Ç°Í¨µÀCCRÖµÖµ
+		Pulse =__HAL_TIM_GET_COMPARE(htim,TIM_CHANNEL);	//è·å–å½“å‰é€šé“CCRå€¼å€¼
 		__HAL_TIM_SET_COMPARE(htim,TIM_CHANNEL,Pulse+Pulse_Per);
 }
 
 
 
 /**
-  * º¯Êı¹¦ÄÜ: ÉèÖÃ²½½øµç»úÏòÄ³Ò»·½Ïò×ªÌØ¶¨Âö³åÊı
-  * ÊäÈë²ÎÊı: Direction£º·½Ïò		Pulse£ºÂö³åÊı
-  * ·µ »Ø Öµ: 
-  * Ëµ    Ã÷£º
+  * å‡½æ•°åŠŸèƒ½: è®¾ç½®æ­¥è¿›ç”µæœºå‘æŸä¸€æ–¹å‘è½¬ç‰¹å®šè„‰å†²æ•°
+  * è¾“å…¥å‚æ•°: Directionï¼šæ–¹å‘		Pulseï¼šè„‰å†²æ•°
+  * è¿” å› å€¼: 
+  * è¯´    æ˜ï¼š
   */
 WEAK void stepmotor::rotate_with_Pulse(uint8_t Direction,uint64_t Pulse)
 {
@@ -149,10 +149,10 @@ WEAK void stepmotor::rotate_with_Pulse(uint8_t Direction,uint64_t Pulse)
 }
 
 /**
-  * º¯Êı¹¦ÄÜ: ÉèÖÃ²½½øµç»úÏòÄ³Ò»·½Ïò×ªÖ¸¶¨½Ç¶È
-  * ÊäÈë²ÎÊı: Completed_pulse()
-  * ·µ »Ø Öµ: 
-  * Ëµ    Ã÷£º
+  * å‡½æ•°åŠŸèƒ½: è®¾ç½®æ­¥è¿›ç”µæœºå‘æŸä¸€æ–¹å‘è½¬æŒ‡å®šè§’åº¦
+  * è¾“å…¥å‚æ•°: Completed_pulse()
+  * è¿” å› å€¼: 
+  * è¯´    æ˜ï¼š
   */
 WEAK void stepmotor::set_Completed_pulse(int64_t Completed_pulse)
 {
@@ -161,10 +161,10 @@ WEAK void stepmotor::set_Completed_pulse(int64_t Completed_pulse)
 
 
 /**
-  * º¯Êı¹¦ÄÜ: ÉèÖÃ²½½øµç»úÔËĞĞµÄÍê³ÉÂö³åÊı
-  * ÊäÈë²ÎÊı: (µ¥Î»£º¶È)
-  * ·µ »Ø Öµ: 
-  * Ëµ    Ã÷£º
+  * å‡½æ•°åŠŸèƒ½: è®¾ç½®æ­¥è¿›ç”µæœºè¿è¡Œçš„å®Œæˆè„‰å†²æ•°
+  * è¾“å…¥å‚æ•°: (å•ä½ï¼šåº¦)
+  * è¿” å› å€¼: 
+  * è¯´    æ˜ï¼š
   */
 WEAK void stepmotor::rotate_with_angle(uint8_t Direction,float angle)
 {
@@ -172,10 +172,10 @@ WEAK void stepmotor::rotate_with_angle(uint8_t Direction,float angle)
 }
 
 /**
-  * º¯Êı¹¦ÄÜ: ¶¨Ê±Æ÷ÖĞÖÜÆÚ¸üĞÂÊ£ÓàÂö³åÊı
-  * ÊäÈë²ÎÊı: 
-  * ·µ »Ø Öµ: 
-  * Ëµ    Ã÷£º·ÅÔÚPWM¶¨Ê±Æ÷Ñ­»·ÖĞ
+  * å‡½æ•°åŠŸèƒ½: å®šæ—¶å™¨ä¸­å‘¨æœŸæ›´æ–°å‰©ä½™è„‰å†²æ•°
+  * è¾“å…¥å‚æ•°: 
+  * è¿” å› å€¼: 
+  * è¯´    æ˜ï¼šæ”¾åœ¨PWMå®šæ—¶å™¨å¾ªç¯ä¸­
   */
 WEAK void stepmotor::TIMupdate(TIM_HandleTypeDef *htim)
 {

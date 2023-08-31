@@ -2,12 +2,11 @@
  * @file bsp_foc.cpp
  * @brief foc板级支持包
  * @author Tony_Wang
- * @version 1.1
- * @date 2023-8-31
+ * @version 1.0
+ * @date 2023-7-8
  * @copyright
  * @par 日志:
  *   V1.0 基本构建，完成： 1.开环速度控制 2.基于编码器的位置闭环控制
- * 	 V1.1 重写运行逻辑，改为模式运行
  *
  */
 
@@ -18,14 +17,20 @@
 #include <math.h>
 
 #define WEAK __attribute__((weak)) // 使用WEAK类型是方便特殊电机来重构特定函数
+#define BSP_FOC_PI 3.1415926535f
+
+// 初始变量及函数定义
+#define _constrain(amt, low, high) ((amt) < (low) ? (low) : ((amt) > (high) ? (high) : (amt)))
+// 宏定义实现的一个约束函数,用于限制一个值的范围。
+// 具体来说，该宏定义的名称为 _constrain，接受三个参数 amt、low 和 high，分别表示要限制的值、最小值和最大值。该宏定义的实现使用了三元运算符，根据 amt 是否小于 low 或大于 high，返回其中的最大或最小值，或者返回原值。
+// 换句话说，如果 amt 小于 low，则返回 low；如果 amt 大于 high，则返回 high；否则返回 amt。这样，_constrain(amt, low, high) 就会将 amt 约束在 [low, high] 的范围内。
 
 /* 默认声明变量样例 */
 pwmio pwm_u(&htim2, TIM_CHANNEL_1);
 pwmio pwm_v(&htim2, TIM_CHANNEL_2);
 pwmio pwm_w(&htim2, TIM_CHANNEL_3);
 foc motor_1612(&pwm_u, &pwm_v, &pwm_w, 7, REVERSE);
-pid pid_out_1612(1.0f, 0, 0, 0, 300);
-pid pid_in_1612(-0.05, -0.001, 0, 4, 4);
+pid pid_1612(-30.0f, 0, 0, 0, 4);
 // foc motor_1612(&pwm_u, &pwm_v, &pwm_w, 4);
 
 /* pwmio 构造函数 */
@@ -133,18 +138,6 @@ void foc::set_encoder(encoder *_encoder)
 }
 
 /**
- * @brief  foc 编码器设置滤波器函数
- * @details	定义里面 new 了一个 LowPassFilter 类，调用设定函数的 delete 默认的
- * @param  	_encoder :链接配置的编码器，这是一个软核，输出要求为弧度值[0,2PI]
- * @retval
- */
-void foc::set_LowPassFilter(LowPassFilter *_LowPassFilter)
-{
-	delete this->_LowPassFilter; // 释放默认的滤波器
-	this->_LowPassFilter = _LowPassFilter;
-}
-
-/**
  * @brief  foc 外环设置函数
  * @details
  * @param  	_PID_OUT :链接配置的 pid 类，用于控制位置闭环的，属于外环
@@ -153,17 +146,6 @@ void foc::set_LowPassFilter(LowPassFilter *_LowPassFilter)
 void foc::set_PID_OUT(pid *_PID_OUT)
 {
 	this->_PID_OUT = _PID_OUT;
-}
-
-/**
- * @brief  foc 内环设置函数
- * @details
- * @param  	_PID_IN :链接配置的 pid 类，用于控制速度闭环的，属于内环
- * @retval
- */
-void foc::set_PID_IN(pid *_PID_IN)
-{
-	this->_PID_IN = _PID_IN;
 }
 
 /**
@@ -211,7 +193,7 @@ float foc::set_ZeroElectricalAngle(float zero_electrical_angle)
 float foc::init_ZeroElectricalAngle(uint16_t delaytime)
 {
 	/* 上电到特定角度 */
-	run_QDangle(voltage_limit / 2, 0, 3 * PI / 2);
+	run_QDangle(voltage_limit / 2, 0, 3 * BSP_FOC_PI / 2);
 	/* 等待电机转到该位置 */
 	HAL_Delay(delaytime);
 	/* 编码器读取该位置的机械角度 */
@@ -221,7 +203,7 @@ float foc::init_ZeroElectricalAngle(uint16_t delaytime)
 	shaftAngle_2_electricalAngle();
 	/* 该位置的电角度设置为 初始零电角度 */
 	set_ZeroElectricalAngle(electrical_angle);
-	run_QDangle(0, 0, 3 * PI / 2);
+	run_QDangle(0, 0, 3 * BSP_FOC_PI / 2);
 
 	return zero_electrical_angle;
 }
@@ -243,8 +225,8 @@ float foc::shaftAngle_2_electricalAngle(void)
 // 归一化角度到 [0,2PI]
 float foc::_normalizeAngle(float angle)
 {
-	float a = fmod(angle, 2 * PI); // 取余运算可以用于归一化，列出特殊值例子算便知
-	return a >= 0 ? a : (a + 2 * PI);
+	float a = fmod(angle, 2 * BSP_FOC_PI); // 取余运算可以用于归一化，列出特殊值例子算便知
+	return a >= 0 ? a : (a + 2 * BSP_FOC_PI);
 	// 三目运算符。格式：condition ? expr1 : expr2
 	// 其中，condition 是要求值的条件表达式，如果条件成立，则返回 expr1 的值，否则返回 expr2 的值。可以将三目运算符视为 if-else 语句的简化形式。
 	// fmod 函数的余数的符号与除数相同。因此，当 angle 的值为负数时，余数的符号将与 _2PI 的符号相反。也就是说，如果 angle 的值小于 0 且 _2PI 的值为正数，则 fmod(angle, _2PI) 的余数将为负数。
@@ -281,111 +263,49 @@ void foc::run_QDangle(float Uq_input, float Ud_input, float angle_el)
 }
 
 /**
- * @brief  目标速度设置函数
+ * @brief  开环虚拟速度运行函数
  * @details
- * @param  target_speed :目标速度，单位 rpm
+ * @param  target_velocity :目标速度
  * @retval
  */
-void foc::set_speed(float _target_speed)
+void foc::run_speed_Openloop(float target_velocity)
 {
-	target_speed = _target_speed;
-	/* 判断是否有编码器 */
-	if (this->_encoder != nullptr)
-	{
-		/* 有编码器，速度闭环模式 */
-		run_mode = speedMode;
-	}
-	else
-	{
-		/* 无编码器，开环速度模式 */
-		run_mode = openloop;
-	}
+	uint64_t now_us = MICROS_us(); // 获得从芯片启动开始的微秒时间
+	/* 计算每个 loop 的运行时间 */
+	static uint32_t openloop_timestamp; // 用于计算时间间隔
+	float Ts = (now_us - openloop_timestamp) * 1e-6f;
+
+	/* now_us 会在大约 70min 后跳变到 0 ，因此需要进行修正 */
+	/* Ts 过大直接修正为一个较小的值 */
+	// Ts = Ts > 0.5f ? 1e-3f : Ts;
+	if (Ts <= 0 || Ts > 0.5f)
+		Ts = 1e-3f;
+	/* 通过时间的目标速度虚拟的角度，需要对机械角度归一化为 [0,2PI] */
+	shaft_angle = _normalizeAngle(shaft_angle + target_velocity * Ts);
+	/* 计算电角度 */
+	shaftAngle_2_electricalAngle();
+
+	/* 直接设置 Uq 为电压上限，进行输出 */
+	Uq = voltage_limit / 3;
+	run_QDangle(Uq, 0, electrical_angle);
+	openloop_timestamp = now_us;
 }
 
 /**
- * @brief  目标角度设置函数
+ * @brief  闭环位置运行函数
  * @details
- * @param  target_speed :目标角度，单位 度°
+ * @param  target_angle :目标角度，由于过程中计算均使用弧度值，这里输入角度制，方便理解
  * @retval
  */
-void foc::set_angle(float _target_angle)
+void foc::run_angle(float target_angle)
 {
-	target_angle = _target_angle;
-	run_mode = angleMode;
-}
-
-/* ************************************************************************************************ */
-
-/**
- * @brief  运行函数
- * @details 放在周期循环中自动更新运行状态
- * @param
- * @retval
- */
-void foc::run(void)
-{
-	/* 开环运行模式 */
-	if (this->run_mode == openloop)
-	{
-		uint64_t now_us = MICROS_us(); // 获得从芯片启动开始的微秒时间
-		/* 计算每个 loop 的运行时间 */
-		static uint32_t openloop_timestamp; // 用于计算时间间隔
-		float Ts = (now_us - openloop_timestamp) * 1e-6f;
-
-		/* now_us 会在大约 70min 后跳变到 0 ，因此需要进行修正 */
-		/* Ts 过大直接修正为一个较小的值 */
-		// Ts = Ts > 0.5f ? 1e-3f : Ts;
-		if (Ts <= 0 || Ts > 0.5f)
-			Ts = 1e-3f;
-		/* 通过时间的目标速度虚拟的角度，需要对机械角度归一化为 [0,2PI] */
-		shaft_angle = _normalizeAngle(shaft_angle + target_speed * Ts);
-		/* 计算电角度 */
-		shaftAngle_2_electricalAngle();
-
-		/* 直接设置 Uq 为电压上限，进行输出 */
-		this->Uq = voltage_limit / 3;
-		this->Ud = 0;
-		// run_QDangle(Uq, 0, electrical_angle);
-		openloop_timestamp = now_us;
-	}
-	/* 速度闭环运行模式 */
-	else if (this->run_mode == speedMode)
-	{
-		// /* 转换输入的速度值 角度值 变为弧度值 */
-		// target_speed = (target_speed / 180.0f) * PI;
-		/* 获取速度角度 */
-		speed = _encoder->get_speed();
-		speed = Rad2Rot(speed);
-		/* 速度通过低通滤波器 */
-		speed = _LowPassFilter->run(speed);
-		/* 获得角度值 */
-		shaft_angle = _encoder->date;
-		/* 转化为电角度 */
-		shaftAngle_2_electricalAngle();
-		/* 运行pid */
-		this->Uq = _PID_IN->pid_run(target_speed - speed);
-		this->Ud = 0;
-		// run_QDangle(_PID_IN->pid_run(target_speed - speed), 0, electrical_angle);
-	}
-	/* 位置闭环运行模式 */
-	else if (this->run_mode == angleMode)
-	{
-		/* 获取速度角度 */
-		speed = _encoder->get_speed();
-		speed = Rad2Rot(speed);
-		/* 速度通过低通滤波器 */
-		speed = _LowPassFilter->run(speed);
-		/* 转换输入的角度值变为弧度值 */
-		// target_angle = (target_angle / 180.0f) * PI;
-		/* 获取机械角度 */
-		shaft_angle = _encoder->date;
-		/* 转化为电角度 */
-		shaftAngle_2_electricalAngle();
-		/* 运行pid,这里是串级pid，先位置外环再速度内环 */
-		this->target_speed = _PID_OUT->pid_run(target_angle - Rad2Angle(shaft_angle));
-		this->Uq = _PID_IN->pid_run(target_speed - speed);
-		this->Ud = 0;
-		// run_QDangle(_PID_OUT->pid_run(target_angle - shaft_angle), 0, electrical_angle);
-	}
-	run_QDangle(Uq, Ud, electrical_angle);
+	/* 转换输入的角度值变为弧度值 */
+	target_angle = (target_angle / 180.0f) * BSP_FOC_PI;
+	/* 获取机械角度 */
+	shaft_angle = _encoder->get_count();
+	/* 转化为电角度 */
+	shaftAngle_2_electricalAngle();
+	/* 运行pid */
+	run_QDangle(_PID_OUT->pid_run(target_angle - shaft_angle), 0, electrical_angle);
+	// run_QDangle(3, 0, electrical_angle);
 }

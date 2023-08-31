@@ -4,7 +4,7 @@
 
  * @外设相关：<font color=Red>foc</font >
 
-   @版本：<font color=Red>1.1</font >
+   @版本：<font color=Red>1.0</font >
 
    @维护：<font color=Red>Tony_Wang</font >
 
@@ -16,9 +16,6 @@
    | 版本                               |                             更新时间                             |功能|
    | :--------------------------------- | :----------------------------------------------------------: | :----------------------------------------------------------: |
    | <font color=DeepSkyBlue>1.0</font> | <font color=DeepSkyBlue>2023-7-8</font> |<font color=DeepSkyBlue>基本构建，完成： 1.开环速度控制 2.基于编码器的位置闭环控制</font>|
-   | <font color=DeepSkyBlue>1.1</font> | <font color=DeepSkyBlue>2023-8-31</font> |<font color=DeepSkyBlue>重写运行逻辑，改为模式运行</font>|
-   |                                    |                                          |                                                              |
-   |                                    |                                          |                                                              |
 
 
 
@@ -32,15 +29,6 @@
 > > | bsp_pid.hpp         | 闭环pid控制    |
 > > | ------------------- | -------------- |
 > > | **app_encoder.hpp** | **编码器采样** |
-> > | bsp_pid.hpp         | **编码器采样** |
-> > | **app_encoder.hpp** | **编码器采样** |
-> > | **app_encoder.hpp** | **编码器采样** |
-> > 
-> > | 依赖库名称    | 版本 | 依赖功能 |
-> > | ------------- | -------- |-------- |
-> > | bsp_pid.hpp | V1.0 | DMA 发送 |
-> > | app_encoder.hpp | V1.1 | 数据读取 |
-> > |               |          |          |
 
  ## 3 重要函数介绍
 
@@ -80,6 +68,7 @@ protected:
 ### 3.2 foc 类介绍
 
 ```cpp
+/*****			foc 构造函数				******/
 class foc
 {
 public:
@@ -87,22 +76,13 @@ public:
 
 	DIR_STATE dir;			// 正转的旋转方向
 	uint8_t pole_pairs;		// 极对数
-	float shaft_angle;		// 机械角度，单位°
+	float shaft_angle;		// 机械角度
 	float electrical_angle; // 电角度
-
-	foc_run_mode run_mode = speedMode; // 当前运行状态
-	/* 目标运行值 */
-	float target_speed; // 目标速度
-	float target_angle; // 目标角度
 
 	pid *_PID_OUT; // 外环位置环
 	void set_PID_OUT(pid *_PID_OUT);
 
-	pid *_PID_IN; // 内环速度环
-	void set_PID_IN(pid *_PID_IN);
-	float speed; // 当前旋转速度,单位 rpm
-
-	encoder *_encoder = nullptr;		 // 使用的编码器
+	encoder *_encoder;					 // 使用的编码器
 	void set_encoder(encoder *_encoder); // 编码器设置函数
 
 	// 成员函数
@@ -110,17 +90,16 @@ public:
 	foc(pwmio *pwm_u, pwmio *pwm_v, pwmio *pwm_w, int pole_pairs, DIR_STATE dir = FORWARD);
 	void init(void);														 // foc 初始化函数
 	void set_voltage_limit(float voltage_limit, float voltage_power_supply); // 电压限制设置函数
+	void run_speed_Openloop(float target_velocity);							 // 开环运行函数
+	void run_angle(float target_angle);										 // 角度闭环运行函数
 
-	void set_speed(float _target_speed); // 设置目标速度
-	void set_angle(float _target_speed); // 设置目标角度
+	float voltage_limit;		// 输出限制电压
+	float voltage_power_supply; // 电源电压
 
-	void run(void); // foc自动运行函数
-
-	// 保护成员函数
-	float shaftAngle_2_electricalAngle(void);			  // 电角度转换函数
-	float _normalizeAngle(float angle);					  // 角度标准化为[0,2PI]
-	void run_QDangle(float Uq, float Ud, float angle_el); // 输入Uq，Ud，和电角度，通过克拉克与帕克逆变换
-	void run_UVW(float Uu, float Uv, float Uw);			  // 根据最后电压运行函数
+	/* 原始电角度偏差值 */
+	float zero_electrical_angle = 0.0f;							// 原始电角度偏差值
+	float init_ZeroElectricalAngle(uint16_t delaytime);			// 自动检测初始化电角度偏差值函数
+	float set_ZeroElectricalAngle(float zero_electrical_angle); // 原始电角度设定
 
 	/* 输入控制参数 */
 	float Uq, Ud;
@@ -131,17 +110,12 @@ public:
 	/* 克拉克逆变换后的中间量 */
 	float Uu, Uv, Uw;
 
-	float voltage_limit;		// 输出限制电压
-	float voltage_power_supply; // 电源电压
+	// 保护成员函数
+	float shaftAngle_2_electricalAngle(void);			  // 电角度转换函数
+	float _normalizeAngle(float angle);					  // 角度标准化为[0,2PI]
+	void run_QDangle(float Uq, float Ud, float angle_el); // 输入Uq，Ud，和电角度，通过克拉克与帕克逆变换
+	void run_UVW(float Uu, float Uv, float Uw);			  // 根据最后电压运行函数
 
-	/* 原始电角度偏差值 */
-	float zero_electrical_angle = 0.0f;							// 原始电角度偏差值
-	float init_ZeroElectricalAngle(uint16_t delaytime);			// 自动检测初始化电角度偏差值函数
-	float set_ZeroElectricalAngle(float zero_electrical_angle); // 原始电角度设定
-
-	/* 滤波器配置 */
-	LowPassFilter *_LowPassFilter = new LowPassFilter(0.01f); // 默认配置一个低通滤波器，时间常数为 10ms
-	void set_LowPassFilter(LowPassFilter *_LowPassFilter);	  // 配置低通滤波器
 protected:
 	uint16_t _tim_autoreload; // 当前时钟的重装载值
 };
@@ -197,89 +171,45 @@ void foc::init(void)
 
 
 
-#### 3.2.3 运行函数
+#### 3.2.3 开环速度控制函数
 
 ```cpp
 /**
- * @brief  运行函数
- * @details 放在周期循环中自动更新运行状态
- * @param
+ * @brief  开环虚拟速度运行函数
+ * @details
+ * @param  target_velocity :目标速度
  * @retval
  */
-void foc::run(void)
+void foc::run_speed_Openloop(float target_velocity)
 {
-	/* 开环运行模式 */
-	if (this->run_mode == openloop)
-	{
-		uint64_t now_us = MICROS_us(); // 获得从芯片启动开始的微秒时间
-		/* 计算每个 loop 的运行时间 */
-		static uint32_t openloop_timestamp; // 用于计算时间间隔
-		float Ts = (now_us - openloop_timestamp) * 1e-6f;
+	uint32_t now_us = MICROS_us(); // 获得从芯片启动开始的微秒时间
+	/* 计算每个 loop 的运行时间 */
+	static uint32_t openloop_timestamp; // 用于计算时间间隔
+	float Ts = (now_us - openloop_timestamp) * 1e-6f;
 
-		/* now_us 会在大约 70min 后跳变到 0 ，因此需要进行修正 */
-		/* Ts 过大直接修正为一个较小的值 */
-		// Ts = Ts > 0.5f ? 1e-3f : Ts;
-		if (Ts <= 0 || Ts > 0.5f)
-			Ts = 1e-3f;
-		/* 通过时间的目标速度虚拟的角度，需要对机械角度归一化为 [0,2PI] */
-		shaft_angle = _normalizeAngle(shaft_angle + target_speed * Ts);
-		/* 计算电角度 */
-		shaftAngle_2_electricalAngle();
+	/* now_us 会在大约 70min 后跳变到 0 ，因此需要进行修正 */
+	/* Ts 过大直接修正为一个较小的值 */
+	// Ts = Ts > 0.5f ? 1e-3f : Ts;
+	if (Ts <= 0 || Ts > 0.5f)
+		Ts = 1e-3f;
+	/* 通过时间的目标速度虚拟的角度，需要对机械角度归一化为 [0,2PI] */
+	shaft_angle = _normalizeAngle(shaft_angle + target_velocity * Ts);
+	/* 计算电角度 */
+	shaftAngle_2_electricalAngle();
 
-		/* 直接设置 Uq 为电压上限，进行输出 */
-		this->Uq = voltage_limit / 3;
-		this->Ud = 0;
-		// run_QDangle(Uq, 0, electrical_angle);
-		openloop_timestamp = now_us;
-	}
-	/* 速度闭环运行模式 */
-	else if (this->run_mode == speedMode)
-	{
-		// /* 转换输入的速度值 角度值 变为弧度值 */
-		// target_speed = (target_speed / 180.0f) * PI;
-		/* 获取速度角度 */
-		speed = _encoder->get_speed();
-		speed = Rad2Rot(speed);
-		/* 速度通过低通滤波器 */
-		speed = _LowPassFilter->run(speed);
-		/* 获得角度值 */
-		shaft_angle = _encoder->date;
-		/* 转化为电角度 */
-		shaftAngle_2_electricalAngle();
-		/* 运行pid */
-		this->Uq = _PID_IN->pid_run(target_speed - speed);
-		this->Ud = 0;
-		// run_QDangle(_PID_IN->pid_run(target_speed - speed), 0, electrical_angle);
-	}
-	/* 位置闭环运行模式 */
-	else if (this->run_mode == angleMode)
-	{
-		/* 获取速度角度 */
-		speed = _encoder->get_speed();
-		speed = Rad2Rot(speed);
-		/* 速度通过低通滤波器 */
-		speed = _LowPassFilter->run(speed);
-		/* 转换输入的角度值变为弧度值 */
-		// target_angle = (target_angle / 180.0f) * PI;
-		/* 获取机械角度 */
-		shaft_angle = _encoder->date;
-		/* 转化为电角度 */
-		shaftAngle_2_electricalAngle();
-		/* 运行pid,这里是串级pid，先位置外环再速度内环 */
-		this->target_speed = _PID_OUT->pid_run(target_angle - Rad2Angle(shaft_angle));
-		this->Uq = _PID_IN->pid_run(target_speed - speed);
-		this->Ud = 0;
-		// run_QDangle(_PID_OUT->pid_run(target_angle - shaft_angle), 0, electrical_angle);
-	}
-	run_QDangle(Uq, Ud, electrical_angle);
+	/* 直接设置 Uq 为电压上限，进行输出 */
+	Uq = voltage_limit / 3;
+	run_QDangle(Uq, 0, electrical_angle);
+	openloop_timestamp = now_us;
 }
 ```
 
-* 根据模式运行对应的运行函数，整个范数放在周期循环中即可
+* 输入参数单位为 弧度/s
+* 本质原理是通过每次运行的时间差推测电机的电角度进行控制
 
 
 
-#### 3.2.4 配置函数
+#### 3.2.4 位置闭环控制
 
 * 闭环控制必须要配置 编码器 和 PID，并检测出原始电角度
 
@@ -355,45 +285,29 @@ float foc::init_ZeroElectricalAngle(uint16_t delaytime)
 motor_1612.set_ZeroElectricalAngle(1.15f);
 ```
 
-#### 3.2.4 目标设置函数
+##### 3.2.3.4 位置闭环运行函数
 
 ```cpp
 /**
- * @brief  目标速度设置函数
+ * @brief  闭环位置运行函数
  * @details
- * @param  target_speed :目标速度，单位 rpm
+ * @param  target_angle :目标角度，由于过程中计算均使用弧度值，这里输入角度制，方便理解
  * @retval
  */
-void foc::set_speed(float _target_speed)
+void foc::run_angle(float target_angle)
 {
-	target_speed = _target_speed;
-	/* 判断是否有编码器 */
-	if (this->_encoder != nullptr)
-	{
-		/* 有编码器，速度闭环模式 */
-		run_mode = speedMode;
-	}
-	else
-	{
-		/* 无编码器，开环速度模式 */
-		run_mode = openloop;
-	}
-}
-
-/**
- * @brief  目标角度设置函数
- * @details
- * @param  target_speed :目标角度，单位 度°
- * @retval
- */
-void foc::set_angle(float _target_angle)
-{
-	target_angle = _target_angle;
-	run_mode = angleMode;
+	/* 转换输入的角度值变为弧度值 */
+	target_angle = (target_angle / 180.0f) * BSP_FOC_PI;
+	/* 获取机械角度 */
+	shaft_angle = _encoder->get_count();
+	/* 转化为电角度 */
+	shaftAngle_2_electricalAngle();
+	/* 运行pid */
+	run_QDangle(_PID_OUT->pid_run(target_angle - shaft_angle), 0, electrical_angle);
 }
 ```
 
-* 设置目标速度或者角度，自动配置运行模式
+* 输入单位为 度°
 
 
 
@@ -416,20 +330,11 @@ void foc::set_angle(float _target_angle)
 ### 5.1 默认使用方法
 
 * Cube配置中在<font color='DeepSkyBlue'>pwm输出3个通道</font>，脉冲频率设置为<font color='DeepSkyBlue'>30kHz以上</font>，pwm输出模式的 Fast Mode 设置为 Enable ，GPIO 输出速率设置为最大， 开启对应时钟中断
-
 * 声明使用的三个 pwmio ，foc
-
 * 主函数中调用 <font color='DeepSkyBlue'>set_voltage_limit()</font> 设置电压限制，适应 <font color='DeepSkyBlue'>init()</font> 初始化foc电机
-
-* 设置目标函数
-
-  ```cpp
-  motor_1612.set_speed(debugvalue);
-  //或者
-  motor_1612.set_angle(debugvalue);
-  ```
-
-* 周期调用 run 运行函数
+* 开环 循环使用 <font color='DeepSkyBlue'>run_speed_Openloop(速度)</font> 进行开环控制
+* 闭环控制首先在程序运行之初通过 <font color='DeepSkyBlue'>set_encoder(&HallEncoder);</font> 和 <font color='DeepSkyBlue'>set_PID_OUT(&pid_1612);</font> 配置编码器和pid
+* 闭环 循环调用 <font color='DeepSkyBlue'>run_angle(180);</font> 控制闭环角度
 
 
 

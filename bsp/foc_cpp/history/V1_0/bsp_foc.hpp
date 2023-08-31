@@ -2,12 +2,11 @@
  * @file bsp_foc.cpp
  * @brief foc板级支持包
  * @author Tony_Wang
- * @version 1.1
- * @date 2023-8-31
+ * @version 1.0
+ * @date 2023-7-8
  * @copyright
  * @par 日志:
  *   V1.0 基本构建，完成： 1.开环速度控制 2.基于编码器的位置闭环控制
- * 	 V1.1 重写运行逻辑，改为模式运行
  *
  */
 
@@ -18,8 +17,7 @@
 
 #include "PID_cpp/bsp_pid.hpp"
 #include "app_encoder/app_encoder.hpp"
-#include "dep.hpp"
-#include "filter/bsp_filter.hpp"
+#include "systick/bsp_systick.h"
 
 /* pwm 勾选 fastmode */
 /* gpio 速度设置为最大 */
@@ -57,13 +55,6 @@ typedef enum
 } DIR_STATE;
 
 /*****			foc 构造函数				******/
-typedef enum
-{
-	openloop = 0, // 无编码器开环运行
-	speedMode,	  // display only on user request
-	angleMode	  // display textual messages to the user
-} foc_run_mode;
-
 class foc
 {
 public:
@@ -71,22 +62,13 @@ public:
 
 	DIR_STATE dir;			// 正转的旋转方向
 	uint8_t pole_pairs;		// 极对数
-	float shaft_angle;		// 机械角度，单位°
+	float shaft_angle;		// 机械角度
 	float electrical_angle; // 电角度
-
-	foc_run_mode run_mode = speedMode; // 当前运行状态
-	/* 目标运行值 */
-	float target_speed; // 目标速度
-	float target_angle; // 目标角度
 
 	pid *_PID_OUT; // 外环位置环
 	void set_PID_OUT(pid *_PID_OUT);
 
-	pid *_PID_IN; // 内环速度环
-	void set_PID_IN(pid *_PID_IN);
-	float speed; // 当前旋转速度,单位 rpm
-
-	encoder *_encoder = nullptr;		 // 使用的编码器
+	encoder *_encoder;					 // 使用的编码器
 	void set_encoder(encoder *_encoder); // 编码器设置函数
 
 	// 成员函数
@@ -94,17 +76,16 @@ public:
 	foc(pwmio *pwm_u, pwmio *pwm_v, pwmio *pwm_w, int pole_pairs, DIR_STATE dir = FORWARD);
 	void init(void);														 // foc 初始化函数
 	void set_voltage_limit(float voltage_limit, float voltage_power_supply); // 电压限制设置函数
+	void run_speed_Openloop(float target_velocity);							 // 开环运行函数
+	void run_angle(float target_angle);										 // 角度闭环运行函数
 
-	void set_speed(float _target_speed); // 设置目标速度
-	void set_angle(float _target_speed); // 设置目标角度
+	float voltage_limit;		// 输出限制电压
+	float voltage_power_supply; // 电源电压
 
-	void run(void); // foc自动运行函数
-
-	// 保护成员函数
-	float shaftAngle_2_electricalAngle(void);			  // 电角度转换函数
-	float _normalizeAngle(float angle);					  // 角度标准化为[0,2PI]
-	void run_QDangle(float Uq, float Ud, float angle_el); // 输入Uq，Ud，和电角度，通过克拉克与帕克逆变换
-	void run_UVW(float Uu, float Uv, float Uw);			  // 根据最后电压运行函数
+	/* 原始电角度偏差值 */
+	float zero_electrical_angle = 0.0f;							// 原始电角度偏差值
+	float init_ZeroElectricalAngle(uint16_t delaytime);			// 自动检测初始化电角度偏差值函数
+	float set_ZeroElectricalAngle(float zero_electrical_angle); // 原始电角度设定
 
 	/* 输入控制参数 */
 	float Uq, Ud;
@@ -115,24 +96,18 @@ public:
 	/* 克拉克逆变换后的中间量 */
 	float Uu, Uv, Uw;
 
-	float voltage_limit;		// 输出限制电压
-	float voltage_power_supply; // 电源电压
+	// 保护成员函数
+	float shaftAngle_2_electricalAngle(void);			  // 电角度转换函数
+	float _normalizeAngle(float angle);					  // 角度标准化为[0,2PI]
+	void run_QDangle(float Uq, float Ud, float angle_el); // 输入Uq，Ud，和电角度，通过克拉克与帕克逆变换
+	void run_UVW(float Uu, float Uv, float Uw);			  // 根据最后电压运行函数
 
-	/* 原始电角度偏差值 */
-	float zero_electrical_angle = 0.0f;							// 原始电角度偏差值
-	float init_ZeroElectricalAngle(uint16_t delaytime);			// 自动检测初始化电角度偏差值函数
-	float set_ZeroElectricalAngle(float zero_electrical_angle); // 原始电角度设定
-
-	/* 滤波器配置 */
-	LowPassFilter *_LowPassFilter = new LowPassFilter(0.01f); // 默认配置一个低通滤波器，时间常数为 10ms
-	void set_LowPassFilter(LowPassFilter *_LowPassFilter);	  // 配置低通滤波器
 protected:
 	uint16_t _tim_autoreload; // 当前时钟的重装载值
 };
 
 extern foc motor_1612;
 extern pwmio pwm_u;
-extern pid pid_out_1612;
-extern pid pid_in_1612;
+extern pid pid_1612;
 
 #endif

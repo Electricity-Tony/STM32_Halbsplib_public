@@ -3,10 +3,11 @@
  * @brief dep
  * @author Tony_Wang
  * @version 1.1
- * @date 2023-7-24
+ * @date 2023-8-31
  * @copyright
  * @par 日志:
  *   V1.0 为保证所有库需要依赖的文件都包含，将所有依赖文件独立成dep库
+ *   V1.1 增加角度单位转换
  *
  */
 
@@ -27,7 +28,6 @@
 // }
 // #endif // __cplusplus
 
-
 /* 宏定义 --------------------------------------------------------------------*/
 #define WEAK __attribute__((weak)) // 使用WEAK类型是方便重构特定函数
 
@@ -42,7 +42,15 @@
 
 #define ABS(x) ((x) > 0 ? (x) : -(x)) // 快速取绝对值
 
-/* 函数定义 */
+/* 角度单位转换 */
+#define Rad2Rot(rad) ((rad) / PI * 30)      // 弧度(rad/s) 转 转速(rpm)
+#define Rad2Angle(rad) ((rad) / PI * 180)   // 弧度(rad) 转 角度(°)
+#define Angle2Rad(angle) ((angle)*PI / 180) // 角度(°) 转 弧度(rad)
+#define Angle2Rot(angle) ((angle) / 6)      // 角度(°/s) 转 转速(rpm)
+#define Rot2Rad(rot) ((rot)*PI / 30)        // 转速(rpm) 转 弧度(rad/s)
+#define Rot2Angle(rot) ((rot)*6)            // 转速(rpm) 转 角度(°/s)
+
+/* 函数定义 ---------------------------------------------------------------------------------- */
 /* new 与 delete 重定义 */
 void *operator new(size_t size);
 void operator delete(void *p);

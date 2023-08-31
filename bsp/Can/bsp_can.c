@@ -1,8 +1,29 @@
-/*
+/** 
+* @brief    CAN°å¼¶Ö§³Ö°ü
+* @details  CAN×ÜÏßÏà¹ØÉèÖÃ£¬Êı¾İ½ÓÊÕ½âÎöº¯Êı
+* @author   Evan-GH
+* @date      2019.11
+* @version  1.8
+* @par Copyright (c):  RM2020µç¿Ø
+* @par ÈÕÖ¾
+*				¾ßÌåÊ¹ÓÃ·½·¨¼ûReadme.md
+*				°æ±¾±ä¸ü:
+*				2019.10		|		1.0		|		µ÷Í¨CAN×ÜÏßÏà¹ØÖĞ¶Ï´¦Àíº¯Êı
+*				2019.10		|		1.1		|		¼ÓÈëÌõ¼ş±àÒë,×ÔÖ÷Ñ¡Ôñ¿ªÆôÄ³¸öCANÏß
+*				2019.10		|		1.2		|		¼ÓÈëÌõ¼ş±àÒë,·ÖÎªÊ¹ÓÃĞÅºÅÁ¿ºÍÆÕÍ¨ÖĞ¶ÏÁ½ÖÖ
+*				2019.10		|		1.3		|		ĞŞ¸Ä·¢ËÍÏà¹Øº¯Êı£¬Ê¹µÃ¸ü·½±ãÊ¹ÓÃ
+*				2019.10		|		1.4		|		¸ù¾İ´úÂë¹æ·¶ĞŞ¸ÄÁËÒ»²¿·Öº¯ÊıÃû³Æ
+*				2019.10		|		1.5		|		²Î¿¼RM19´úÂë£¬ĞŞ¸Ä¶ÔÍâ½Ó¿Úº¯Êı£¬·â×°¸ü³¹µ×
+*				2019.10		|		1.6		|		ĞŞ¸Ä½ÓÊÕÖĞ¶ÏºÍCANÏß·¢ËÍº¯ÊıÂß¼­
+*				2019.11.11|		1.7		|		Ìí¼Ó¶Ô³õÊ¼»¯½á¹ûµÄ¼ì²âºÍ¸ü¸Ä·¢ËÍº¯ÊıµÄ·µ»ØÀàĞÍ£¬²¢¶Ô½á¹û×ö¼ì²â£¬´Ë´Î¸Ä¶¯ÊÇÎªÁËÊÊÅäC++µç»ú¿â
+*				2019.11.15|		1.8		|		ÔÚ»Øµ÷²ÎÊıÖĞ¹Ì¶¨Ìí¼ÓC++µç»ú¿âµÄ½âÎöº¯Êı£¬ÏÖÔÚÁ½¸ö¿â¿ÉÒÔÖ±½ÓÀ¦°óÊ¹ÓÃÎŞĞè×ö¹ı¶àĞŞ¸ÄÁË
+*				2019.11.15|		1.9		|		ĞŞ¸ÄÁËº¯Êı×¢ÊÍ
+*				2019.11.15|		2.0		|		È¥³ıÁËĞÅºÅÁ¿Ê¹ÓÃµÄÌõ¼ş±àÒë£¬ÏÖÔÚÖ»ĞèÒªÑ¡ÔñÊ¹ÓÃÄÄÒ»¸öCAN×ÜÏßÁË£¬Ìí¼ÓÁËÒ»¸öfreertosµÄÌõ¼ş±àÒëÊ¹ÓÃÑ¡Ïî
+*
 * @author   Tony_Wang
 * @date      2020.10.7	
-*				2020.10.7		|		2.1		|		é‡æ–°ç¼–å†™ReadMEï¼Œä¾¿äºä»é›¶å¼€å§‹åº“çš„ä½¿ç”¨
-*				2020.10.8		|		2.2		|		è¿›è¡Œå®å®šä¹‰è®¾å®šï¼Œå¯ç”¨äºF1ä½¿ç”¨ï¼Œå¹¶å¯å¼€å…³ä½¿ç”¨ç”µæœºåº“å•ç‹¬ä½¿ç”¨CAN
+*				2020.10.7		|		2.1		|		ÖØĞÂ±àĞ´ReadME£¬±ãÓÚ´ÓÁã¿ªÊ¼¿âµÄÊ¹ÓÃ
+*				2020.10.8		|		2.2		|		½øĞĞºê¶¨ÒåÉè¶¨£¬¿ÉÓÃÓÚF1Ê¹ÓÃ£¬²¢¿É¿ª¹ØÊ¹ÓÃµç»ú¿âµ¥¶ÀÊ¹ÓÃCAN
 *
 */
 #include "bsp_can.hpp"
@@ -13,14 +34,14 @@
 #endif // USE_bsp_motor
 
 /**
-* @brief  CANæ€»çº¿é…ç½®åˆå§‹åŒ–
-* @details  åˆå§‹åŒ–æ»¤æ³¢å™¨ï¼Œæ ¹æ®å®å®šä¹‰çš„å¼€å¯æ¥åˆå§‹åŒ–CANæ€»çº¿
+* @brief  CAN×ÜÏßÅäÖÃ³õÊ¼»¯
+* @details  ³õÊ¼»¯ÂË²¨Æ÷£¬¸ù¾İºê¶¨ÒåµÄ¿ªÆôÀ´³õÊ¼»¯CAN×ÜÏß
 * @param  NULL
 * @retval  NULL
 */
 void bsp_can_Init(void)
 {
-	//CANæ»¤æ³¢å™¨è®¾ç½®ï¼Œæ­¤éƒ¨åˆ†ä¸éœ€è¦ä¿®æ”¹ï¼Œç›´æ¥ç”¨å°±è¡Œ
+	//CANÂË²¨Æ÷ÉèÖÃ£¬´Ë²¿·Ö²»ĞèÒªĞŞ¸Ä£¬Ö±½ÓÓÃ¾ÍĞĞ
 	CAN_FilterTypeDef CAN_FilterConfig;
 	
 	CAN_FilterConfig.SlaveStartFilterBank=0;
@@ -36,41 +57,41 @@ void bsp_can_Init(void)
 		CAN_FilterConfig.FilterBank = 0;
 		if(HAL_CAN_ConfigFilter(&hcan1, &CAN_FilterConfig) != HAL_OK)
 		{
-			while(1);//åˆå§‹åŒ–æ²¡æœ‰æˆåŠŸåˆ™æš´éœ²é”™è¯¯
+			while(1);//³õÊ¼»¯Ã»ÓĞ³É¹¦Ôò±©Â¶´íÎó
 		}
 		HAL_CAN_Start(&hcan1);
-		HAL_CAN_ActivateNtotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING); /*å¼€å¯ä¸­æ–­*/
+		HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING); /*¿ªÆôÖĞ¶Ï*/
 	#endif
 	
 	#ifdef BSP_CAN_USE_CAN2
-		CAN_FilterConfig.FilterBank = 14; //CAN2æ»¤æ³¢å™¨ç”¨14å·
+		CAN_FilterConfig.FilterBank = 14; //CAN2ÂË²¨Æ÷ÓÃ14ºÅ
 		if(HAL_CAN_ConfigFilter(&hcan2,&CAN_FilterConfig) != HAL_OK)
 		{
-			while(1);//åˆå§‹åŒ–æ²¡æœ‰æˆåŠŸåˆ™æš´éœ²é”™è¯¯
+			while(1);//³õÊ¼»¯Ã»ÓĞ³É¹¦Ôò±©Â¶´íÎó
 		}
 		HAL_CAN_Start(&hcan2);
-		HAL_CAN_ActivateNotification(&hcan2, CAN_IT_RX_FIFO0_MSG_PENDING); /*å¼€å¯ä¸­æ–­*/
+		HAL_CAN_ActivateNotification(&hcan2, CAN_IT_RX_FIFO0_MSG_PENDING); /*¿ªÆôÖĞ¶Ï*/
 	#endif
 
 
 	#ifdef BSP_CAN_USE_CAN
-		CAN_FilterConfig.FilterBank = 0; //CAN2æ»¤æ³¢å™¨ç”¨14å·
+		CAN_FilterConfig.FilterBank = 0; //CAN2ÂË²¨Æ÷ÓÃ14ºÅ
 		if (HAL_CAN_ConfigFilter(&hcan, &CAN_FilterConfig) != HAL_OK)
 		{
-			while (1);//åˆå§‹åŒ–æ²¡æœ‰æˆåŠŸåˆ™æš´éœ²é”™è¯¯
+			while (1);//³õÊ¼»¯Ã»ÓĞ³É¹¦Ôò±©Â¶´íÎó
 		}
 		HAL_CAN_Start(&hcan);
-		HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING); /*å¼€å¯ä¸­æ–­*/
+		HAL_CAN_ActivateNotification(&hcan, CAN_IT_RX_FIFO0_MSG_PENDING); /*¿ªÆôÖĞ¶Ï*/
 	#endif // BSP_CAN_USE_CAN
 
 	
 }
 
 /**
-* @brief  CANå‘é€æ•°æ®
-* @details  é€šè¿‡CANæ€»çº¿å‘é€æ§åˆ¶æ•°æ®
-* @param  CAN_HandleTypeDef* hcan å‘é€ä½¿ç”¨çš„CANæ€»çº¿,int16_t StdId CANçº¿å‘é€ID,int16_t* Can_Send_Data éœ€è¦å‘é€çš„æ•°æ®
-* @retval  HAL_RESULT å‘é€ç»“æœ HAL_OK æˆåŠŸï¼ŒHAL_ERROR å¤±è´¥
+* @brief  CAN·¢ËÍÊı¾İ
+* @details  Í¨¹ıCAN×ÜÏß·¢ËÍ¿ØÖÆÊı¾İ
+* @param  CAN_HandleTypeDef* hcan ·¢ËÍÊ¹ÓÃµÄCAN×ÜÏß,int16_t StdId CANÏß·¢ËÍID,int16_t* Can_Send_Data ĞèÒª·¢ËÍµÄÊı¾İ
+* @retval  HAL_RESULT ·¢ËÍ½á¹û HAL_OK ³É¹¦£¬HAL_ERROR Ê§°Ü
 */
 HAL_StatusTypeDef bsp_can_Sendmessage(CAN_HandleTypeDef* hcan,int16_t StdId,int16_t* Can_Send_Data)
 {
@@ -78,7 +99,7 @@ HAL_StatusTypeDef bsp_can_Sendmessage(CAN_HandleTypeDef* hcan,int16_t StdId,int1
 	CAN_TxHeaderTypeDef bsp_can_Tx;
 	HAL_StatusTypeDef HAL_RESULT;
 	
-	//å°†ä¼ å…¥çš„æ•°æ®è½¬æ¢ä¸ºæ ‡å‡†CANå¸§æ•°æ®
+	//½«´«ÈëµÄÊı¾İ×ª»»Îª±ê×¼CANÖ¡Êı¾İ
 	uint8_t Data[8];
 	Data[0] = (uint8_t)((*(Can_Send_Data+0)>>8));
 	Data[1] = (uint8_t)(*(Can_Send_Data+0)) & 0XFF;
@@ -89,22 +110,22 @@ HAL_StatusTypeDef bsp_can_Sendmessage(CAN_HandleTypeDef* hcan,int16_t StdId,int1
 	Data[6] = (uint8_t)((*(Can_Send_Data+3)>>8));
 	Data[7] = (uint8_t)(*(Can_Send_Data+3)) & 0XFF;
 	
-	//è®¾ç½®CANå¸§é…ç½®
+	//ÉèÖÃCANÖ¡ÅäÖÃ
 	bsp_can_Tx.StdId=StdId;
 	bsp_can_Tx.RTR = CAN_RTR_DATA;
 	bsp_can_Tx.IDE = CAN_ID_STD;
 	bsp_can_Tx.DLC = 8;
 	HAL_RESULT = HAL_CAN_AddTxMessage(hcan, &bsp_can_Tx, Data, &MailBox);
 	#ifndef BSP_CAN_USE_FREERTOS
-		while(HAL_CAN_GetTxMailboxesFreeLevel(hcan)!=3);//ç­‰å¾…å‘é€å®Œæˆï¼Œå¦‚æœæ˜¯ä½¿ç”¨FreeRTOSåˆ™å¯ä»¥ä¸éœ€è¦è¿™å¥,å› ä¸ºä»»åŠ¡è°ƒåº¦æœ¬èº«æ˜¯éœ€è¦å»¶æ—¶çš„
+		while(HAL_CAN_GetTxMailboxesFreeLevel(hcan)!=3);//µÈ´ı·¢ËÍÍê³É£¬Èç¹ûÊÇÊ¹ÓÃFreeRTOSÔò¿ÉÒÔ²»ĞèÒªÕâ¾ä,ÒòÎªÈÎÎñµ÷¶È±¾ÉíÊÇĞèÒªÑÓÊ±µÄ
 	#endif
 	
 	return HAL_RESULT;
 }
 
 /**
-* @brief  CANæ¥æ”¶ä¸­æ–­
-* @details  é‡æ–°å®šä¹‰æ¥æ”¶ä¸­æ–­ï¼Œä¼šè‡ªåŠ¨åœ¨CANä¸­æ–­ä¸­è°ƒç”¨ï¼Œä¸éœ€è¦æ‰‹åŠ¨æ·»åŠ ,ä½¿ç”¨çš„æ—¶å€™è‡ªè¡Œåœ¨æ­¤å‡½æ•°ä¸­æ›¿æ¢è§£æå‡½æ•°
+* @brief  CAN½ÓÊÕÖĞ¶Ï
+* @details  ÖØĞÂ¶¨Òå½ÓÊÕÖĞ¶Ï£¬»á×Ô¶¯ÔÚCANÖĞ¶ÏÖĞµ÷ÓÃ£¬²»ĞèÒªÊÖ¶¯Ìí¼Ó,Ê¹ÓÃµÄÊ±ºò×ÔĞĞÔÚ´Ëº¯ÊıÖĞÌæ»»½âÎöº¯Êı
 * @param  NULL
 * @retval  NULL
 */
@@ -113,30 +134,30 @@ void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef* hcan)
 	static CAN_RxHeaderTypeDef bsp_can_Rx;
 	uint8_t CAN_RxData[8];
 	
-	if(HAL_CAN_GetRxFifoFillLevel(hcan, CAN_RX_FIFO0)!=0) //åˆ¤æ–­ä¸­æ–­äº§ç”Ÿ
+	if(HAL_CAN_GetRxFifoFillLevel(hcan, CAN_RX_FIFO0)!=0) //ÅĞ¶ÏÖĞ¶Ï²úÉú
 	{
-		HAL_CAN_GetRxMessage(hcan, 0, &bsp_can_Rx, CAN_RxData);	//è·å–CANæŠ¥æ–‡
+		HAL_CAN_GetRxMessage(hcan, 0, &bsp_can_Rx, CAN_RxData);	//»ñÈ¡CAN±¨ÎÄ
 		
-		//ä½¿ç”¨ç”µæœºåº“é¡»è¿”å›ç›¸å¯¹åº”çš„ç”µæœºå€¼
+		//Ê¹ÓÃµç»ú¿âĞë·µ»ØÏà¶ÔÓ¦µÄµç»úÖµ
 		#ifdef USE_bsp_motor
 		motor::CANUpdate(hcan, &bsp_can_Rx, (uint8_t*)CAN_RxData);
 		#endif // USE_bsp_motor
 
-		//CAN1æ”¶åˆ°æ•°æ®çš„è§£æå‡½æ•°
+		//CAN1ÊÕµ½Êı¾İµÄ½âÎöº¯Êı
 		#ifdef BSP_CAN_USE_CAN1
 		if (hcan == &hcan1)
 		{
 		}
 		#endif
 
-		//CAN2æ”¶åˆ°æ•°æ®çš„è§£æå‡½æ•°
+		//CAN2ÊÕµ½Êı¾İµÄ½âÎöº¯Êı
 		#ifdef BSP_CAN_USE_CAN2
 		if (hcan == &hcan2)
 		{
 		}
 		#endif
 
-		//ä½¿ç”¨F1æ—¶CANæ”¶åˆ°æ•°æ®çš„è§£æå‡½æ•°
+		//Ê¹ÓÃF1Ê±CANÊÕµ½Êı¾İµÄ½âÎöº¯Êı
 		#ifdef BSP_CAN_USE_CAN
 		#endif
 	}

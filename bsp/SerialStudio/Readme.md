@@ -4,7 +4,7 @@
 
  * @外设相关：<font color=Red>serialstudio</font >
 
-   @版本：<font color=Red>1.1</font >
+   @版本：<font color=Red>1.0</font >
 
    @维护：<font color=Red>Tony_Wang</font >
 
@@ -16,23 +16,29 @@
    | 版本                               |                             更新时间                             |功能|
    | :--------------------------------- | :----------------------------------------------------------: | :----------------------------------------------------------: |
    | <font color=DeepSkyBlue>1.0</font> | <font color=DeepSkyBlue>2023-7-17</font> |<font color=DeepSkyBlue>成功解读 serialstudio 通讯协议，移植到stm单片机</font>|
-   | <font color=DeepSkyBlue>1.1</font> | <font color=DeepSkyBlue>2023-7-24</font> |<font color=DeepSkyBlue>修护爆flash情况，new需要重定义为较小占用的函数，添加依赖的dep库</font>|
+   | <font color=DeepSkyBlue>1.1</font> | <font color=DeepSkyBlue>2023-8-31</font> |<font color=DeepSkyBlue>修改缓存区为连接外部数组，改为串口DMA发送</font>|
 
  ## 2 文件介绍
 
 > | bsp_serialstudio.cpp     | 串口绘图工具主文件     |
 > | ------------------------ | ---------------------- |
 > | **bsp_serialstudio.hpp** | **串口绘图工具头文件** |
+> > **依赖**
+> >
+> > | 依赖库名称    | 版本 | 依赖功能 |
+> > | ------------- | -------- |-------- |
+> > | bsp_usart.hpp | V2.0 | DMA 发送 |
+> > | dep。hpp | V1.0 |          |
+> > |               |          |          |
+
 
  ## 3 重要函数介绍
 
 ### 3.1 类介绍 serialdebug
 
 ```cpp
-/* serialdebug 串口绘图类声明---------------------------------------------------------------- */
 class serialdebug
 {
-
 public:
 	/* 声明链表类，用来管理数据 */
 	struct data_LinkedNode
@@ -49,6 +55,7 @@ public:
 	// 成员函数
 	serialdebug(UART_HandleTypeDef *_huart, uint16_t data_size);
 	// ~serialdebug();
+	void check_frame_length(void);				// 帧长度检查
 	void add_LinkedNode_AtTail(int val);		// 在末尾添加一个节点
 	void config_data(float data_in, int index); // 转接发送的数据至data[]数组
 	void send_frame(void);						// 发送一帧数据
@@ -62,8 +69,10 @@ protected:
 private:
 	data_LinkedNode *_datadummyHead; // ；链表虚拟头结点
 	uint8_t frame_length;			 // 发送一帧数据的字符串长度
+	uint8_t frame[102];				 // 发送的帧，由于DMA中必须使用全局变量，使用变长数组太麻烦了，因此必须使用一个定长数组，根据需求调整大小
 	uint8_t decimals = 8;			 // 小数位数
 };
+
 ```
 
 * 创建了链表类，通过链表链接外部数据，在通过函数将数据转换为字符串协议用于输出显示绘图
@@ -102,7 +111,34 @@ WEAK serialdebug::serialdebug(UART_HandleTypeDef *_huart, uint16_t data_size)
 * 输入参数为输出的串口通道，并输入每帧数据的数据量
 * 词汇会根据数据量，自动创建数据链表，计算一帧的字符个数
 
-### 3.3 数据获取
+### 3.3 帧长度检查
+
+```cpp
+/**
+ * @brief    帧长度检查
+ * @details  串口输出帧长度情况
+ * @param
+ * @return
+ */
+void serialdebug::check_frame_length(void)
+{
+	HAL_Delay(100);
+	printf("the total frame_length is %d\r\n", this->frame_length);
+	HAL_Delay(100);
+	printf("set the length of the frame is %d\r\n", sizeof(frame) / sizeof(frame[0]));
+	if (frame_length > sizeof(frame) / sizeof(frame[0]))
+	{
+		// frame 长度超限准备做的事
+		HAL_Delay(100);
+		printf("Warning! the length mast be higher\r\n");
+	}
+}
+```
+
+* 检查实际调用的帧数据长度和连接的数组长度，是否超量
+* 需开放使用 printf，并使用串口接受
+
+### 3.4 数据获取
 
 ```cpp
 /**
@@ -125,7 +161,7 @@ void serialdebug::config_data(float data_in, int index)
 * 通过该函数，获取数据转移至链表中
 * 输入需要转存的数据，并写明要放在的顺序索引中，即这个数据是一帧里面的第几个数据
 
-### 3.4 发送数据
+### 3.5 发送数据
 
 ```cpp
 /**
@@ -137,8 +173,8 @@ void serialdebug::config_data(float data_in, int index)
 void serialdebug::send_frame(void)
 {
 	data_LinkedNode *curHead = _datadummyHead;
-	uint8_t frame[frame_length]; // 准备用来发送的一帧
-	uint8_t frame_index = 0;	 // 用于记录frame的索引
+	// uint8_t frame[frame_length]; // 准备用来发送的一帧
+	uint8_t frame_index = 0; // 用于记录frame的索引
 	/* 添加帧头 */
 	memset(frame, 0x00, sizeof(frame));
 	memcpy(frame, frame_start, sizeof(frame_start));
@@ -218,11 +254,13 @@ void serialdebug::send_frame(void)
 	memcpy(frame + frame_index, frame_end, sizeof(frame_end) / sizeof(frame_end[0]));
 	frame_index = frame_index + sizeof(frame_end) / sizeof(frame_end[0]);
 
-	HAL_UART_Transmit(_huart, (uint8_t *)&frame, sizeof(frame) / sizeof(frame[0]), 0xFFFF);
+	// HAL_UART_Transmit(_huart, (uint8_t *)&frame, sizeof(frame) / sizeof(frame[0]), 0xFFFF);
+	HAL_UART_Transmit_DMA(_huart, (uint8_t *)&frame, sizeof(frame) / sizeof(frame[0]));
 }
 ```
 
 * 该函数包含了手写的将 float 转换为要求精度的字符串的算法，并生成一个发送的整体帧，最后发送
+* 最后修改为 DMA 发送，取消最开始 RAM 中申明发送数组
 
  ## 4 自定义修改参数
 
@@ -256,6 +294,12 @@ serialdebug serial_test(&huart1, 2);
 ```
 
 * 包含 <font color='DeepSkyBlue'>串口通道</font>值 和<font color='DeepSkyBlue'> 数据长度</font>
+* 初始化中检查数组长度是否足够
+
+```cpp
+serial_test.check_frame_length();
+```
+
 * 链接数据到链表
 
 ```cpp
@@ -273,37 +317,5 @@ serial_test.send_frame();
  ## 6 其他注意
 
 * 本来通过 pringf 或者 c++ 的 string 可以很方便的对浮点型转化为字符串和数据帧拼接，但是实测发现，<font color='yellow'>重定向串口后会占用20kb的flash空间，调用sting后直接占用60kb，对于f103c8来说存储根本不够</font>，因此整个过程只能手写程序完成。
-* V1.1 版本增加 new 和 delete 的重定义，放置在 dep.cpp 文件中
-
-```cpp
-/* 使用 cpp 特性 new 与 delete 需要调用的代码 */
-void *operator new(size_t size)
-{
-	/* 声明返回的指针 */
-	void *res;
-	/* 输入是指针强行带一个地址 */
-	if (size == 0)
-	{
-		size = 1;
-	}
-	/* 拷贝地址 */
-	res = malloc(size);
-	// 检查是否拷贝完全
-	while (1)
-	{
-		if (res)
-		{
-			break;
-		}
-	}
-	return res;
-}
-void operator delete(void *p)
-{
-	free(p);
-}
-```
-
-
 
  
