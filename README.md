@@ -26,6 +26,10 @@ stm32Cubemx 驱动库
 
 ## 4. bsp 驱动库
 
+### 不依赖的库
+
+> [bsp_flash](./bsp/flash) " v1.0"
+
 
 ### 基于普通 io 的库
 
