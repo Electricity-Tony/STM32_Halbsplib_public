@@ -4,7 +4,7 @@
 
  * @外设相关：<font color=Red>foc</font >
 
-   @版本：<font color=Red>1.1</font >
+   @版本：<font color=Red>2.0 Beta</font >
 
    @维护：<font color=Red>Tony_Wang</font >
 
@@ -17,7 +17,8 @@
    | :--------------------------------- | :----------------------------------------------------------: | :----------------------------------------------------------: |
    | <font color=DeepSkyBlue>1.0</font> | <font color=DeepSkyBlue>2023-7-8</font> |<font color=DeepSkyBlue>基本构建，完成： 1.开环速度控制 2.基于编码器的位置闭环控制</font>|
    | <font color=DeepSkyBlue>1.1</font> | <font color=DeepSkyBlue>2023-8-31</font> |<font color=DeepSkyBlue>重写运行逻辑，改为模式运行</font>|
-   |                                    |                                          |                                                              |
+   | <font color=DeepSkyBlue>2.0 Beta</font> | <font color=DeepSkyBlue>2023-9-18</font> | <font color=DeepSkyBlue>新增电流采样和电流闭环，但是没有调通</font> |
+   | <font color=DeepSkyBlue>2.0</font> | <font color=DeepSkyBlue>2023-10-20</font> | <font color=DeepSkyBlue>调通电流采样与电流闭环</font> |
    |                                    |                                          |                                                              |
 
 
@@ -28,18 +29,17 @@
 > | --------------- | ---------- |
 > | **bsp_foc.hpp** | **头文件** |
 >
-> 可能需要依托的文件
-> > | bsp_pid.hpp         | 闭环pid控制    |
-> > | ------------------- | -------------- |
-> > | **app_encoder.hpp** | **编码器采样** |
-> > | bsp_pid.hpp         | **编码器采样** |
-> > | **app_encoder.hpp** | **编码器采样** |
-> > | **app_encoder.hpp** | **编码器采样** |
+> 可能需要依托的文件.
 > > 
 > > | 依赖库名称    | 版本 | 依赖功能 |
 > > | ------------- | -------- |-------- |
-> > | bsp_pid.hpp | V1.0 | DMA 发送 |
+> > | dep.hpp         | V1.1 | 基本依赖库           |
+> > | bsp_pid.hpp     | V1.0 | DMA 发送             |
 > > | app_encoder.hpp | V1.1 | 数据读取 |
+> > | bsp_filter.hpp | V1.0 | 基本滤波器库 |
+> > | bsp_adc.hpp | V2.0 | cpp版本，使用dma功能 |
+> > |               |          |          |
+> > |               |          |          |
 > > |               |          |          |
 
  ## 3 重要函数介绍
@@ -85,63 +85,107 @@ class foc
 public:
 	pwmio *pwm_u, *pwm_v, *pwm_w; // 三个pwm控制电机三相
 
+	/* EN 使能IO */
+	GPIO_TypeDef *EN_GPIO_Port; // 电机使能端口
+	uint16_t EN_GPIO_Pin;		// 电机使能引脚
+
+	/* 电机硬相关配置参数 */
 	DIR_STATE dir;			// 正转的旋转方向
 	uint8_t pole_pairs;		// 极对数
-	float shaft_angle;		// 机械角度，单位°
+	float shaft_angle;		// 机械角度，单位 rad
 	float electrical_angle; // 电角度
 
-	foc_run_mode run_mode = speedMode; // 当前运行状态
+	/* 软配置参数 */
+	/* 原始电角度偏差值 */
+	float zero_electrical_angle = 0.0f; // 原始电角度偏差值
+	/* 电压限制 */
+	float voltage_limit;		// 输出限制电压
+	float voltage_power_supply; // 电源电压
+	/* PID */
+	pid *_PID_OUT;	   // 外环位置环
+	pid *_PID_IN;	   // 内环速度环
+	pid *_PID_CURRENT; // 电流环
+	/* 编码器 */
+	encoder *_encoder = nullptr;	 // 使用的编码器
+	DIR_STATE encoder_dir = FORWARD; // 霍尔传感器方向
+	/* 电流软传感器 */
+	current_sensor *_current_sensor = nullptr; // 使用的电流采样
+	/* 滤波器配置 */
+	LowPassFilter *_SPEED_LowPassFilter = new LowPassFilter(0.01f); // 速度低通滤波，默认配置一个低通滤波器，时间常数为 10ms
+	LowPassFilter *_Iq_LowPassFilter = new LowPassFilter(0.01f);	// q电流低通滤波，默认配置一个低通滤波器，时间常数为 10ms
+	LowPassFilter *_Id_LowPassFilter = new LowPassFilter(0.01f);	// d电流低通滤波，默认配置一个低通滤波器，时间常数为 10ms
+
+	/* 运行中间参数 */
 	/* 目标运行值 */
-	float target_speed; // 目标速度
-	float target_angle; // 目标角度
-
-	pid *_PID_OUT; // 外环位置环
-	void set_PID_OUT(pid *_PID_OUT);
-
-	pid *_PID_IN; // 内环速度环
-	void set_PID_IN(pid *_PID_IN);
+	float target_speed;	  // 目标速度
+	float target_angle;	  // 目标角度
+	float target_current; // 目标电流
+	/* 运行状态 */
+	foc_run_mode run_mode = speedMode; // 当前运行状态
+	/* 运行参数 */
 	float speed; // 当前旋转速度,单位 rpm
 
-	encoder *_encoder = nullptr;		 // 使用的编码器
-	void set_encoder(encoder *_encoder); // 编码器设置函数
-
-	// 成员函数
-	foc(void){};
-	foc(pwmio *pwm_u, pwmio *pwm_v, pwmio *pwm_w, int pole_pairs, DIR_STATE dir = FORWARD);
-	void init(void);														 // foc 初始化函数
-	void set_voltage_limit(float voltage_limit, float voltage_power_supply); // 电压限制设置函数
-
-	void set_speed(float _target_speed); // 设置目标速度
-	void set_angle(float _target_speed); // 设置目标角度
-
-	void run(void); // foc自动运行函数
-
-	// 保护成员函数
-	float shaftAngle_2_electricalAngle(void);			  // 电角度转换函数
-	float _normalizeAngle(float angle);					  // 角度标准化为[0,2PI]
-	void run_QDangle(float Uq, float Ud, float angle_el); // 输入Uq，Ud，和电角度，通过克拉克与帕克逆变换
-	void run_UVW(float Uu, float Uv, float Uw);			  // 根据最后电压运行函数
-
+	/* 以下变量是控制参数，区分 I_ */
 	/* 输入控制参数 */
-	float Uq, Ud;
-
+	float U_q, U_d;
 	/* 帕克逆变换后的中间量 */
-	float Ualpha;
-	float Ubeta;
+	float U_alpha;
+	float U_beta;
 	/* 克拉克逆变换后的中间量 */
 	float Uu, Uv, Uw;
 
-	float voltage_limit;		// 输出限制电压
-	float voltage_power_supply; // 电源电压
+	/* 以下变量是采样参数，区分 U_ */
+	/* 采样实际参数 */
+	float I_q, I_d;
+	/* 帕克变换后的中间量 */
+	float I_alpha;
+	float I_beta;
 
-	/* 原始电角度偏差值 */
-	float zero_electrical_angle = 0.0f;							// 原始电角度偏差值
-	float init_ZeroElectricalAngle(uint16_t delaytime);			// 自动检测初始化电角度偏差值函数
-	float set_ZeroElectricalAngle(float zero_electrical_angle); // 原始电角度设定
+	// 成员函数
+	foc(void){};
+	foc(pwmio *pwm_u, pwmio *pwm_v, pwmio *pwm_w, int pole_pairs, DIR_STATE dir = FORWARD, GPIO_TypeDef *EN_GPIO_Port = nullptr, uint16_t EN_GPIO_Pin = 0);
 
-	/* 滤波器配置 */
-	LowPassFilter *_LowPassFilter = new LowPassFilter(0.01f); // 默认配置一个低通滤波器，时间常数为 10ms
-	void set_LowPassFilter(LowPassFilter *_LowPassFilter);	  // 配置低通滤波器
+	/* foc 使能与失能 */
+	void enable(void);
+	void disable(void);
+
+	/* 初始化功能函数 */
+	float init_ZeroElectricalAngle(uint16_t delaytime); // 自动检测初始化电角度偏差值函数
+	void init(void);									// foc 初始化函数
+
+	/* 配置设置函数 */
+	void set_voltage_limit(float voltage_limit, float voltage_power_supply); // 电压限制设置函数
+	float set_ZeroElectricalAngle(float zero_electrical_angle);				 // 原始电角度设定
+	void set_SPEED_LowPassFilter(LowPassFilter *_SPEED_LowPassFilter);		 // 配置 速度低通 滤波器
+	void set_Iq_LowPassFilter(LowPassFilter *_Iq_LowPassFilter);			 // 配置 q电流低通 滤波器
+	void set_Id_LowPassFilter(LowPassFilter *_Id_LowPassFilter);			 // 配置 d电流低通 滤波器
+
+	void set_PID_OUT(pid *_PID_OUT);						  // 连接 PID 位置环
+	void set_PID_IN(pid *_PID_IN);							  // 连接 PID 速度环
+	void set_PID_CURRENT(pid *_PID_CURRENT);				  // 连接 PID 电流环
+	void set_encoder(encoder *_encoder);					  // 连接 编码器
+	void set_current_sensor(current_sensor *_current_sensor); // 连接 电流软传感器
+
+	/* 运行目标设置函数 */
+	void set_speed(float _target_speed);					// 设置目标速度
+	void set_speed(float _target_speed, foc_run_mode mode); // 带模式的目标速度
+	void set_angle(float _target_speed);					// 设置目标角度
+	void set_current(float _target_current);				// 设置目标电流
+
+	// 保护成员函数
+	/* 数据转换函数 */
+	float shaftAngle_2_electricalAngle(void);					 // 电角度转换函数
+	float shaftAngle_2_electricalAngle(float shaft_angle_putin); // 电角度转换函数
+	float _normalizeAngle(float angle);							 // 角度标准化为[0,2PI]
+
+	/* 运行计算函数 */
+	void Clark_Park_Inverse(float I_q, float I_d, float angle_el);			// 输入I_q，I_d，和电角度，通过克拉克与帕克逆变换
+	void Clark_Park(float Uu_in, float Uv_in, float Uw_in, float angle_el); // 电流计算 克拉克和帕克变换
+	void run_UVW(float Uu, float Uv, float Uw);								// 根据最后电压运行函数
+
+	/* 周期运行功能函数 */
+	void run(void); // foc自动运行函数
+
 protected:
 	uint16_t _tim_autoreload; // 当前时钟的重装载值
 };
@@ -208,6 +252,21 @@ void foc::init(void)
  */
 void foc::run(void)
 {
+	/* 速度采集放在最开始 */
+	this->speed = this->encoder_dir * this->_encoder->get_speed();
+	this->speed = Rad2Rot(this->speed);
+	this->speed = _SPEED_LowPassFilter->run(this->speed);
+	this->shaft_angle = this->encoder_dir * this->_encoder->date;
+	shaftAngle_2_electricalAngle(this->encoder_dir * this->shaft_angle);
+	/* 电流转换 */
+	this->_current_sensor->update(); // 放到定时器中运行了
+	this->Clark_Park(this->_current_sensor->phase_u.data,
+					 this->_current_sensor->phase_v.data,
+					 this->_current_sensor->phase_w.data,
+					 this->electrical_angle);
+	/* 电流低通滤波 */
+	this->I_q = this->_Iq_LowPassFilter->run(this->I_q);
+	this->I_d = this->_Id_LowPassFilter->run(this->I_d);
 	/* 开环运行模式 */
 	if (this->run_mode == openloop)
 	{
@@ -222,56 +281,92 @@ void foc::run(void)
 		if (Ts <= 0 || Ts > 0.5f)
 			Ts = 1e-3f;
 		/* 通过时间的目标速度虚拟的角度，需要对机械角度归一化为 [0,2PI] */
-		shaft_angle = _normalizeAngle(shaft_angle + target_speed * Ts);
+		static float openloop_shaft_angle;
+		openloop_shaft_angle = _normalizeAngle(openloop_shaft_angle + Rot2Rad(target_speed) * Ts);
 		/* 计算电角度 */
-		shaftAngle_2_electricalAngle();
+		shaftAngle_2_electricalAngle(openloop_shaft_angle);
 
-		/* 直接设置 Uq 为电压上限，进行输出 */
-		this->Uq = voltage_limit / 3;
-		this->Ud = 0;
-		// run_QDangle(Uq, 0, electrical_angle);
+		/* 电流闭环运行 */
+		// this->target_current = voltage_limit / 3;
+		// this->U_q = _PID_CURRENT->pid_run(this->target_current - this->I_q);
+		// this->U_d = _PID_CURRENT->pid_run(0 - this->I_d);
+		/* 直接设置 I_q 为电压上限，进行输出 */
+		this->U_q = voltage_limit / 3;
+		this->U_d = 0;
+		/* 放在最后了 */
+		// Clark_Park_Inverse(I_q, 0, electrical_angle);
 		openloop_timestamp = now_us;
 	}
 	/* 速度闭环运行模式 */
 	else if (this->run_mode == speedMode)
 	{
+		/* 放在最上面了 */
+		/* 速度环部分 */
 		// /* 转换输入的速度值 角度值 变为弧度值 */
 		// target_speed = (target_speed / 180.0f) * PI;
 		/* 获取速度角度 */
-		speed = _encoder->get_speed();
-		speed = Rad2Rot(speed);
+		// speed = _encoder->get_speed();
+		// speed = Rad2Rot(speed);
 		/* 速度通过低通滤波器 */
-		speed = _LowPassFilter->run(speed);
+		// speed = _SPEED_LowPassFilter->run(speed);
 		/* 获得角度值 */
-		shaft_angle = _encoder->date;
+		// shaft_angle = _encoder->date;
 		/* 转化为电角度 */
-		shaftAngle_2_electricalAngle();
+		// shaftAngle_2_electricalAngle();
+
+		/* 控制死区 */
+		float err_temp = this->target_speed - this->speed;
+		if (err_temp > -0.3 && err_temp < 0.3)
+			err_temp = 0;
 		/* 运行pid */
-		this->Uq = _PID_IN->pid_run(target_speed - speed);
-		this->Ud = 0;
-		// run_QDangle(_PID_IN->pid_run(target_speed - speed), 0, electrical_angle);
+		this->target_current = _PID_IN->pid_run(err_temp);
+		/* 电流环部分 */
+		this->U_q = _PID_CURRENT->pid_run(this->target_current - this->I_q);
+		this->U_d = _PID_CURRENT->pid_run(0 - this->I_d);
 	}
 	/* 位置闭环运行模式 */
 	else if (this->run_mode == angleMode)
 	{
+		/* 位置环部分 */
 		/* 获取速度角度 */
-		speed = _encoder->get_speed();
-		speed = Rad2Rot(speed);
+		// speed = _encoder->get_speed();
+		// speed = Rad2Rot(speed);
 		/* 速度通过低通滤波器 */
-		speed = _LowPassFilter->run(speed);
+		// speed = _SPEED_LowPassFilter->run(speed);
 		/* 转换输入的角度值变为弧度值 */
 		// target_angle = (target_angle / 180.0f) * PI;
 		/* 获取机械角度 */
-		shaft_angle = _encoder->date;
+		// shaft_angle = _encoder->date;
 		/* 转化为电角度 */
-		shaftAngle_2_electricalAngle();
+		// shaftAngle_2_electricalAngle();
 		/* 运行pid,这里是串级pid，先位置外环再速度内环 */
-		this->target_speed = _PID_OUT->pid_run(target_angle - Rad2Angle(shaft_angle));
-		this->Uq = _PID_IN->pid_run(target_speed - speed);
-		this->Ud = 0;
-		// run_QDangle(_PID_OUT->pid_run(target_angle - shaft_angle), 0, electrical_angle);
+		this->target_speed = _PID_OUT->pid_run(this->target_angle - Rad2Angle(shaft_angle));
+		/* 速度环部分 */
+		this->target_current = _PID_IN->pid_run(this->target_speed - speed);
+		/* 电流环部分 */
+		this->U_q = _PID_CURRENT->pid_run(this->target_current - this->I_q);
+		this->U_d = _PID_CURRENT->pid_run(0 - this->I_d);
 	}
-	run_QDangle(Uq, Ud, electrical_angle);
+	/* 电流闭环运行 */
+	else if (this->run_mode == currentMode)
+	{
+		/* 获取机械角度 */
+		// shaft_angle = this->_encoder->get_date();
+		/* 转化为电角度 */
+		// shaftAngle_2_electricalAngle();
+		/* 电流采样 */
+		// this->_current_sensor->update();
+		/* 运行 克拉克和帕克 变换 */
+		// this->Clark_Park(this->_current_sensor->phase_u.data,
+		// 				 this->_current_sensor->phase_v.data,
+		// 				 this->_current_sensor->phase_w.data,
+		// 				 this->electrical_angle);
+		/* 运行pid,这里是串级pid，运行电流环 */
+		this->U_q = _PID_CURRENT->pid_run(this->target_current - this->I_q);
+		this->U_d = _PID_CURRENT->pid_run(0 - this->I_d);
+	}
+
+	Clark_Park_Inverse(U_q, U_d, electrical_angle);
 }
 ```
 
@@ -318,8 +413,75 @@ void foc::set_PID_OUT(pid *_PID_OUT)
 
 * 须使用 bsp_pid 库，首先要声明一个 pid 变量
 * 传入一个 pid 变量的地址
+* 三环pid均需要单独配置
 
-##### 3.2.3.3. 原始电角度测试
+##### 3.2.3.3 电流传感配置
+
+* adc_dma 端配置
+
+* 需要链接一个对应的数组大小作为dma的buffer
+
+* 同时先完成 adc_dma 的初始化
+
+  >注意，cube 中的配置需要更改对应的触发方式(一定软件触发)，关闭连续采样
+  >
+  >![image-20231020174855715](./Readme.assets/image-20231020174855715.png)
+
+```cpp
+uint16_t bsp_adc_dma1_buffer[2];
+bsp_ADC_DMA bsp_adc_dma1 = bsp_ADC_DMA(&hadc1, 2, bsp_adc_dma1_buffer);
+
+  /* 电流采样 ADC_DMA 初始化 */
+  HAL_Delay(1000);
+  bsp_adc_dma1.init();
+```
+
+* 链接到 foc 的电流传感类
+* 完成初始校准
+* 之后会随着电机运行自动采样
+
+```cpp
+/* ****************** 电流采样传感器构造函数 ************************** */
+class current_sensor
+{
+public:
+	/* 相电流结构体声明 */
+	struct phase
+	{
+		float data;		 // 节点上存储的元素
+		int8_t channel;	 // 链接 bsp_ADC_DMA 的数据序号
+		float offset;	 // 补偿值
+		float ratio = 1; // 电流转换系数
+		phase(void){};
+		phase(float x) : data(x) {} // 节点的构造函数
+		phase(float x, int8_t channel) : data(x), channel(channel) {}
+	};
+
+	bsp_ADC_DMA *adc_dma; // 连接的adc采样类
+
+	phase phase_u, phase_v, phase_w; // 三个相
+
+	// 成员函数
+	current_sensor(void){};
+	current_sensor(bsp_ADC_DMA *adc_dma);
+	void set_phase(phase *_phase, int8_t channel, float ratio);
+	void calibration(uint16_t times);											  // 偏差校准函数
+	void init(int8_t channel_u, int8_t channel_v, int8_t channel_w, float ratio); // 初始化函数
+	void init(int8_t channel_u, int8_t channel_v, int8_t channel_w, float ratio_u, float ratio_v, float ratio_w);
+	// ~current();
+	void update(void); // 数据更新
+
+private:
+};
+
+motor_1612.set_current_sensor(&foc_current_sensor);
+motor_1612._current_sensor->init(0, 1, -1, 20);
+motor_1612._current_sensor->calibration(100);
+```
+
+
+
+##### 3.2.3.4 原始电角度测试
 
 ```cpp
 /**
@@ -354,6 +516,79 @@ float foc::init_ZeroElectricalAngle(uint16_t delaytime)
 ```cpp
 motor_1612.set_ZeroElectricalAngle(1.15f);
 ```
+
+##### 3.2.3.5 全配置内容
+
+```cpp
+  /* 电流采样 ADC_DMA 初始化 */
+  HAL_Delay(1000);
+  bsp_adc_dma1.init();
+
+  /* foc 初始化 */
+  motor_1612.set_voltage_limit(11.1, 12);
+  motor_1612.init();
+  motor_1612.set_encoder(&HallEncoder);
+  motor_1612.set_PID_OUT(&pid_out_1612);
+  motor_1612.set_PID_IN(&pid_in_1612);
+  // /* 初始化得到原始电角度 */
+  // HAL_GPIO_WritePin(M_EN_GPIO_Port, M_EN_Pin, GPIO_PIN_SET);
+  // motor_1612.init_ZeroElectricalAngle(3000);
+  // HAL_GPIO_WritePin(M_EN_GPIO_Port, M_EN_Pin, GPIO_PIN_RESET);
+  // printf("zer_electrical_angle = %5.8f\r\n", motor_1612.zero_electrical_angle);
+  /* 已经采样得到了  直接赋值的原始电角度 */
+  motor_1612.set_ZeroElectricalAngle(5.85807991f);
+  /* foc 电流采样初始化 */
+  motor_1612.set_current_sensor(&foc_current_sensor);
+  motor_1612._current_sensor->init(0, 1, -1, 20);
+  motor_1612.set_PID_CURRENT(&pid_current_1612);
+
+  motor_1612._current_sensor->calibration(100);
+  // printf("u_offset = %5f, v_offset = %5f, w_offset = %5f\r\n",
+  //        motor_1612._current_sensor->phase_u.offset,
+  //        motor_1612._current_sensor->phase_v.offset,
+  //        motor_1612._current_sensor->phase_w.offset);
+
+  /* 设置了一下霍尔传感器方向 使速度位置pid 为正 */
+  motor_1612.encoder_dir = REVERSE;
+```
+
+* 此后在定时器中调用运行函数
+
+```cpp
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim == &htim2)
+    {
+        static uint8_t Tick1 = 0;
+        static uint8_t Tick2 = 0;
+        if (__HAL_TIM_IS_TIM_COUNTING_DOWN(&htim2)) // 50us 20k Hz
+        {
+            if (Tick1 < 1) // 1: 50us
+            {
+                Tick1++;
+            }
+            else
+            {
+                Tick1 = 0;
+                motor_1612._current_sensor->adc_dma->getonce();
+            }
+
+            if (Tick2 < 19) // 19:1000us
+            {
+                Tick2++;
+            }
+            else
+            {
+                Tick2 = 0;
+                motor_1612.run();
+                // app_motor_can_Basic_postback(&motor_1612);
+            }
+        }
+    }
+ }
+```
+
+
 
 #### 3.2.4 目标设置函数
 
@@ -391,9 +626,22 @@ void foc::set_angle(float _target_angle)
 	target_angle = _target_angle;
 	run_mode = angleMode;
 }
+
+/**
+ * @brief  foc 电流采样设置函数
+ * @details
+ * @param  	_current_sensor :链接配置的电流采样，这是一个软核
+ * @retval
+ */
+void foc::set_current_sensor(current_sensor *_current_sensor)
+{
+	this->_current_sensor = _current_sensor;
+}
+
 ```
 
 * 设置目标速度或者角度，自动配置运行模式
+* 注意：电流控制目前并没有加入控制中
 
 
 
@@ -417,6 +665,14 @@ void foc::set_angle(float _target_angle)
 
 * Cube配置中在<font color='DeepSkyBlue'>pwm输出3个通道</font>，脉冲频率设置为<font color='DeepSkyBlue'>30kHz以上</font>，pwm输出模式的 Fast Mode 设置为 Enable ，GPIO 输出速率设置为最大， 开启对应时钟中断
 
+* <font color='red'>正确配置定时器！！！！！</font>
+
+* ![image-20231020175544393](./Readme.assets/image-20231020175544393.png)
+
+* <font color='red'>正确配置ADC_DMA！！！！！！</font>
+
+* ![image-20231020175604612](./Readme.assets/image-20231020175604612.png)
+
 * 声明使用的三个 pwmio ，foc
 
 * 主函数中调用 <font color='DeepSkyBlue'>set_voltage_limit()</font> 设置电压限制，适应 <font color='DeepSkyBlue'>init()</font> 初始化foc电机
@@ -427,6 +683,7 @@ void foc::set_angle(float _target_angle)
   motor_1612.set_speed(debugvalue);
   //或者
   motor_1612.set_angle(debugvalue);
+  motor_1612.set_current(0);
   ```
 
 * 周期调用 run 运行函数
@@ -448,8 +705,55 @@ motor_1612.pwm_v->set_ccr(0);
 motor_1612.pwm_w->set_ccr(0);
 ```
 
+* 关于电流
 
+  >目前电流实现了采样，但是数据奇怪，如下图
+  >
+  >![image-20230918105926794](./Readme.assets/image-20230918105926794.png)
+  >
+  >该图是位置闭环模式下，用手强行给电机一个偏差然后在不同位置时的电流采样情况，左图为计算 iq 后的，右图为原始两相下端采样数据，明显可看出 iq计算与点电角度成周期关系，目前不知道问题在哪
 
 * 这个库封装的快，部分中间计算存储变量都没用放在 protect 中，后续优化需要注意
 
   
+  
+* 定时器中配置很关键
+
+  ```cpp
+  /* 以下内容放在定时器中断里 */
+  /* 中断定时器直接使用 pwm 的 中心采样，具体见 readme */
+  if (htim == &htim2)
+      {
+          static uint8_t Tick1 = 0;
+          static uint8_t Tick2 = 0;
+          if (__HAL_TIM_IS_TIM_COUNTING_DOWN(&htim2)) // 50us 20k Hz
+          {
+              if (Tick1 < 1) // 1: 50us
+              {
+                  Tick1++;
+              }
+              else
+              {
+                  Tick1 = 0;
+                  motor_1612._current_sensor->adc_dma->getonce();
+              }
+  
+              if (Tick2 < 19) // 19:1000us
+              {
+                  Tick2++;
+              }
+              else
+              {
+                  Tick2 = 0;
+                  motor_1612.run();
+                  // app_motor_can_Basic_postback(&motor_1612);
+              }
+          }
+      }
+  
+  ```
+  
+  
+  
+  
+
