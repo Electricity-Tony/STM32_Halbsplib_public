@@ -19,6 +19,25 @@
 #include <string.h>
 #include <math.h>
 /* 类型定义 ------------------------------------------------------------------*/
+
+/* 不同类型变量共享地址转换 */
+/* 32位 */
+typedef union
+{
+    float f;
+    int32_t i;
+    uint16_t i_16[2];
+    uint8_t c_8[4];
+} Shared_Struct_32bit;
+/* 64位 */
+typedef union
+{
+    double f;
+    uint32_t i_32[2];
+    uint16_t i_16[4];
+    uint8_t c_8[8];
+} Shared_Struct_64bit;
+
 /* 这里放一下如果调用c文件时需要放进去的编译声明 */
 // #ifdef __cplusplus
 // extern "C"
@@ -43,12 +62,12 @@
 #define ABS(x) ((x) > 0 ? (x) : -(x)) // 快速取绝对值
 
 /* 角度单位转换 */
-#define Rad2Rot(rad) ((rad) / PI * 30)      // 弧度(rad/s) 转 转速(rpm)
-#define Rad2Angle(rad) ((rad) / PI * 180)   // 弧度(rad) 转 角度(°)
-#define Angle2Rad(angle) ((angle)*PI / 180) // 角度(°) 转 弧度(rad)
-#define Angle2Rot(angle) ((angle) / 6)      // 角度(°/s) 转 转速(rpm)
-#define Rot2Rad(rot) ((rot)*PI / 30)        // 转速(rpm) 转 弧度(rad/s)
-#define Rot2Angle(rot) ((rot)*6)            // 转速(rpm) 转 角度(°/s)
+#define Rad2Rot(rad) ((rad) / PI * 30)        // 弧度(rad/s) 转 转速(rpm)
+#define Rad2Angle(rad) ((rad) / PI * 180)     // 弧度(rad) 转 角度(°)
+#define Angle2Rad(angle) ((angle) * PI / 180) // 角度(°) 转 弧度(rad)
+#define Angle2Rot(angle) ((angle) / 6)        // 角度(°/s) 转 转速(rpm)
+#define Rot2Rad(rot) ((rot) * PI / 30)        // 转速(rpm) 转 弧度(rad/s)
+#define Rot2Angle(rot) ((rot) * 6)            // 转速(rpm) 转 角度(°/s)
 
 /* 函数定义 ---------------------------------------------------------------------------------- */
 /* new 与 delete 重定义 */

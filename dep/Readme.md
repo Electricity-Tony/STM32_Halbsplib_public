@@ -4,7 +4,7 @@
 
  * @外设相关：<font color=Red>最底层依赖库</font >
 
-   @版本：<font color=Red>1.1</font >
+   @版本：<font color=Red>1.2</font >
 
    @维护：<font color=Red>Tony_Wang</font >
 
@@ -17,7 +17,7 @@
    | :--------------------------------- | :----------------------------------------------------------: | :----------------------------------------------------------: |
    | <font color=DeepSkyBlue>1.0</font> | <font color=DeepSkyBlue>2023-7-24</font> |<font color=DeepSkyBlue>为保证所有库需要依赖的文件都包含，将所有依赖文件独立成dep库</font>|
    | <font color=DeepSkyBlue>1.1</font> | <font color=DeepSkyBlue>2023-8-31</font> |<font color=DeepSkyBlue>增加角度单位转换</font>|
-   |                                    |                                          |                                                              |
+   | <font color=DeepSkyBlue>1.2</font> | <font color=DeepSkyBlue>2022-11-27</font> | <font color=DeepSkyBlue>增加了不同类型变量共享地址转换</font> |
    |                                    |                                          |                                                              |
    |                                    |                                          |                                                              |
 
@@ -59,6 +59,12 @@
 | ------ | ------------------------ |
 | new    | 重定义，避免原始的爆内存 |
 | delete | 重定义，避免原始的爆内存 |
+
+* 共享地址类型转换
+| 类型名              | 作用                   |
+| ------------------- | ---------------------- |
+| Shared_Struct_32bit | 共享的32位不同类型地址 |
+| Shared_Struct_64bit | 共享的64位不同类型地址 |
 
 
 

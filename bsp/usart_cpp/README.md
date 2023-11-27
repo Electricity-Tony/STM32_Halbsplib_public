@@ -170,7 +170,7 @@ build_flags =
 3. 添加bsp_usart.cpp与bsp_usart.hpp文件至工程,并添加 memory.hpp
 4. 按照需求对相关宏定义
 
-5. 初始化使用USART_Interrupt_Init（）函数
+5. 初始化使用USART_Debug_DMA_Init（）函数
 6. 自由使用printf输出函数
 7. 通过接收的数据**RxDebugDate**，进行相关操作
 
