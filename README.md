@@ -78,7 +78,7 @@ stm32Cubemx 驱动库
 
 > [bsp_usart](./bsp/usart_cpp/) " v2.0"
 >
-> [bsp_serialstudio](./bsp/SerialStudio/) " v1.1"
+> [bsp_serialdebug](./bsp/serialdebug/) " v2.0"
 >
 > [bsp_DYSV](./bsp/DYSV/) " v1.0"
 
