@@ -68,7 +68,9 @@ stm32Cubemx 驱动库
 
 > [bsp_bmp280](./bsp/Bmp280/) " v1.0"
 >
-> [bsp_tle5012b](./bsp/tle5012b/) " v1.0"
+> [bsp_tle5012b](./bsp/tle5012b/) " v1.0"	"spi霍尔编码器"
+>
+> [bsp_as5048a](./bsp/as5048a/) " v1.0"	"spi霍尔编码器"
 >
 > [bsp_NRF24L01](./bsp/NRF24L01/) " v1.1"
 >
