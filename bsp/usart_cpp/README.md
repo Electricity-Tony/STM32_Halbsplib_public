@@ -179,4 +179,4 @@ build_flags =
 ## 6 其他注意
 
 * 使用DMA 后的发送函数为 HAL_UART_Transmit_DMA()
-
+* <font color=yellow>注意：使用DMA的串口初始化，同时使用 CAN 的时候 必须要放在 CAN初始化函数之后！！！</font>
