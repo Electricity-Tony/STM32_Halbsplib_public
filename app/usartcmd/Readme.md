@@ -399,7 +399,7 @@ UsartCMD command_usart1 = UsartCMD(fusart_Debug);xxxxxxxxxx UsartCMD command_us
 * 声明相关回调函数
 
 ```cpp
-/**
+/**/、、、、、
  * @brief  打印接受到的数据
  * @details
  * @param ID：A

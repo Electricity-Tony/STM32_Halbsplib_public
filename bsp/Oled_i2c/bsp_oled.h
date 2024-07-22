@@ -1,3 +1,13 @@
+/*
+ * @Author: Tony_Wang
+ * @Date: 2023-07-05 14:51:00
+ * @LastEditors: Tony_Wang
+ * @LastEditTime: 2024-06-26 18:44:24
+ * @FilePath: \Oled_i2c\bsp_oled.h
+ * @Description: 
+ * 
+ * Copyright (c) 2024 by ${git_name_email}, All Rights Reserved. 
+ */
 #ifndef __BSP_OLED_H
 #define __BSP_OLED_H			  	 
 
@@ -19,37 +29,37 @@
 #define Oled_WrtData 0x40
 
 
-#define OLED_CMD  0	//Ğ´ÃüÁî
-#define OLED_DATA 1	//Ğ´Êı¾İ
+#define OLED_CMD  0	//å†™å‘½ä»¤
+#define OLED_DATA 1	//å†™æ•°æ®
 
-#define USE_HARDWARE_I2C	//Ê¹ÓÃÓ²¼şI2C£¬ÈôÊ¹ÓÃÄ£ÄâI2CÇë×¢ÊÍ
+#define USE_HARDWARE_I2C	//ä½¿ç”¨ç¡¬ä»¶I2Cï¼Œè‹¥ä½¿ç”¨æ¨¡æ‹ŸI2Cè¯·æ³¨é‡Š
 
 
 
 
 #ifndef USE_HARDWARE_I2C
------------------OLED IIC¶Ë¿Ú¶¨Òå----------------
+-----------------OLED IICç«¯å£å®šä¹‰----------------
 #define OLED_SCLK_Clr() HAL_GPIO_WritePin(I2C_SCL_GPIO_Port,I2C_SCL_Pin,GPIO_PIN_RESET);//SCL
 #define OLED_SCLK_Set() HAL_GPIO_WritePin(I2C_SCL_GPIO_Port,I2C_SCL_Pin,GPIO_PIN_SET);
 
 #define OLED_SDIN_Clr() HAL_GPIO_WritePin(I2C1_SDA_GPIO_Port,I2C1_SDA_Pin,GPIO_PIN_RESET)//SDA
 #define OLED_SDIN_Set() HAL_GPIO_WritePin(I2C1_SDA_GPIO_Port,I2C1_SDA_Pin,GPIO_PIN_SET)
 
-//Èí¼şI2Cº¯ÊıÉùÃ÷
+//è½¯ä»¶I2Cå‡½æ•°å£°æ˜
 void IIC_Start();
 void IIC_Stop();
 void IIC_Wait_Ack();
 void Write_IIC_Byte(unsigned char IIC_Byte);
 #else
 
-#define OLED_hi2c hi2c1	//OLEDÊ¹ÓÃµÄÓ²¼şI2CÍ¨µÀ
+#define OLED_hi2c hi2c1	//OLEDä½¿ç”¨çš„ç¡¬ä»¶I2Cé€šé“
 
 #endif // USE_HARDWARE_I2C
 				 
 
 
 
-//OLED¿ØÖÆÓÃº¯Êı
+//OLEDæ§åˆ¶ç”¨å‡½æ•°
 void OLED_Display_On(void);
 void OLED_Display_Off(void);	   							   		    
 void OLED_Init(void);

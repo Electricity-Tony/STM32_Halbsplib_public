@@ -14,30 +14,45 @@
 #include "bsp_foc.hpp"
 #include "tim.h"
 
-#include "stm32f1xx_ll_cortex.h"
+// #include "stm32f4xx_ll_cortex.h"
 #include <math.h>
 
 #define WEAK __attribute__((weak)) // 使用WEAK类型是方便特殊电机来重构特定函数
 
 /* 默认声明变量样例 */
-pwmio pwm_u(&htim2, TIM_CHANNEL_1);
-pwmio pwm_v(&htim2, TIM_CHANNEL_2);
-pwmio pwm_w(&htim2, TIM_CHANNEL_3);
-// foc motor_1612(&pwm_u, &pwm_v, &pwm_w, 7, REVERSE);
-foc motor_1612(&pwm_u, &pwm_v, &pwm_w, 7, FORWARD, M_EN_GPIO_Port, M_EN_Pin);
-pid pid_out_1612(5.0f, 0.0f, 0.0f, 0.0f, 300.0f);
-// pid pid_in_1612(0.003, 0.0001, 0, 0.5, 0.5);
-pid pid_in_1612(0.003f, 0.0001f, 0.0f, 0.3f, 0.3f);
-pid pid_current_1612(-5.0f, -0.5f, 0.0f, 4.0f, 4.0f);
+pwmio pwm_u(&htim1, TIM_CHANNEL_1, PWM_ENABLE);
+pwmio pwm_v(&htim1, TIM_CHANNEL_2, PWM_ENABLE);
+pwmio pwm_w(&htim1, TIM_CHANNEL_3, PWM_ENABLE);
+foc motor(&pwm_u, &pwm_v, &pwm_w, 7, REVERSE);
+// foc motor(&pwm_u, &pwm_v, &pwm_w, 7, FORWARD);
+pid motor_pid_out(5.0f, 0.0f, 100.0f, 0.0f, 300.0f);
+pid motor_pid_in(0.03f, 0.0f, 0.0f, 3.0f, 3.0f);
+/* 这个是不进入电流环直接输出电压的 */
+// float p = 0.03f;
+// float i = 0.003f;
+// float d = 0.05f;
+// pid motor_pid_in(p, i, 0, 2.0f, 2.0f);
+// pid motor_pid_in(0, 0, d, 2.0f, 2.0f);
+
+float current_p = -0.02f;
+// float current_i = -0.001f;
+float current_i = current_p / 10;
+// float current_i = -0.0f;
+float current_i_max = 2.0f;
+float current_pid_max = 2.0f;
+pid motor_pid_IQ(current_p, current_i, 0.0f, current_i_max, current_pid_max);
+pid motor_pid_ID(current_p, current_i, 0.0f, current_i_max, current_pid_max);
 
 current_sensor foc_current_sensor = current_sensor(&bsp_adc_dma1);
 
 /* pwmio 构造函数 */
-WEAK pwmio::pwmio(TIM_HandleTypeDef *htim, uint32_t TIM_CHANNEL)
+WEAK pwmio::pwmio(TIM_HandleTypeDef *htim, uint32_t TIM_CHANNEL, PWM_STATE __TIM_EX_FLAG)
 {
 	this->htim = htim;
 	this->TIM_CHANNEL = TIM_CHANNEL;
 	this->ccr = 0;
+
+	this->__TIM_EX_FLAG = __TIM_EX_FLAG;
 }
 
 /**
@@ -63,10 +78,18 @@ void pwmio::set_state(PWM_STATE state)
 	this->state = state;
 	if (state == PWM_ENABLE)
 	{
+		if (this->__TIM_EX_FLAG == PWM_ENABLE)
+		{
+			HAL_TIMEx_PWMN_Start(this->htim, TIM_CHANNEL);
+		}
 		HAL_TIM_PWM_Start(this->htim, TIM_CHANNEL);
 	}
 	else if (state == PWM_DISABLE)
 	{
+		if (this->__TIM_EX_FLAG == PWM_ENABLE)
+		{
+			HAL_TIMEx_PWMN_Stop(this->htim, TIM_CHANNEL);
+		}
 		HAL_TIM_PWM_Stop(this->htim, this->TIM_CHANNEL);
 	}
 }
@@ -83,6 +106,7 @@ void pwmio::set_state(PWM_STATE state)
 
 	*
 */
+
 WEAK foc::foc(pwmio *pwm_u, pwmio *pwm_v, pwmio *pwm_w, int pole_pairs, DIR_STATE dir, GPIO_TypeDef *EN_GPIO_Port, uint16_t EN_GPIO_Pin)
 {
 	this->pwm_u = pwm_u;
@@ -108,9 +132,9 @@ WEAK foc::foc(pwmio *pwm_u, pwmio *pwm_v, pwmio *pwm_w, int pole_pairs, DIR_STAT
  */
 void foc::init(void)
 {
-	this->pwm_u->set_state(PWM_ENABLE);
-	this->pwm_v->set_state(PWM_ENABLE);
-	this->pwm_w->set_state(PWM_ENABLE);
+	// this->pwm_u->set_state(PWM_ENABLE);
+	// this->pwm_v->set_state(PWM_ENABLE);
+	// this->pwm_w->set_state(PWM_ENABLE);
 
 	this->pwm_u->set_ccr(0);
 	this->pwm_v->set_ccr(0);
@@ -118,7 +142,7 @@ void foc::init(void)
 	_tim_autoreload = __HAL_TIM_GetAutoreload(this->pwm_u->htim);
 
 	/* 给一个50%的占空比，让adc校准有下降沿触发 */
-	motor_1612.run_UVW(0.5 * motor_1612.voltage_power_supply, 0.5 * motor_1612.voltage_power_supply, 0.5 * motor_1612.voltage_power_supply);
+	this->run_UVW(0.5 * this->voltage_power_supply, 0.5 * this->voltage_power_supply, 0.5 * this->voltage_power_supply);
 }
 
 /**
@@ -129,7 +153,17 @@ void foc::init(void)
  */
 void foc::enable(void)
 {
-	HAL_GPIO_WritePin(this->EN_GPIO_Port, this->EN_GPIO_Pin, GPIO_PIN_SET);
+	if (this->motor_state != FOC_ENABLE)
+	{
+		if (this->EN_GPIO_Port != nullptr)
+		{
+			HAL_GPIO_WritePin(this->EN_GPIO_Port, this->EN_GPIO_Pin, GPIO_PIN_SET);
+		}
+		this->pwm_u->set_state(PWM_ENABLE);
+		this->pwm_v->set_state(PWM_ENABLE);
+		this->pwm_w->set_state(PWM_ENABLE);
+		motor_state = FOC_ENABLE;
+	}
 }
 
 /**
@@ -140,7 +174,18 @@ void foc::enable(void)
  */
 void foc::disable(void)
 {
-	HAL_GPIO_WritePin(this->EN_GPIO_Port, this->EN_GPIO_Pin, GPIO_PIN_RESET);
+	if (this->motor_state != FOC_DISABLE)
+	{
+		if (this->EN_GPIO_Port != nullptr)
+		{
+			HAL_GPIO_WritePin(this->EN_GPIO_Port, this->EN_GPIO_Pin, GPIO_PIN_RESET);
+		}
+		this->pwm_u->set_state(PWM_DISABLE);
+		this->pwm_v->set_state(PWM_DISABLE);
+		this->pwm_w->set_state(PWM_DISABLE);
+		motor_state = FOC_DISABLE;
+		__HAL_TIM_ENABLE(&htim1); // ！！关闭PWM输出会自动失能定时器，需要手动打开
+	}
 }
 
 /**
@@ -227,26 +272,70 @@ void foc::set_PID_IN(pid *_PID_IN)
 
 /**
  * @brief  foc 输出函数
+ * @details 默认以中间计算的三相占空比输出
+ * @param
+ * @retval
+ */
+void foc::run_UVW(void)
+{
+	/* 跳转至带输入参数的 */
+	this->run_UVW(this->Uu, this->Uv, this->Uw);
+}
+
+/**
+ * @brief  foc 输出函数
  * @details
  * @param  	Uu :u相输出电压
  * @param  	Uv :v相输出电压
  * @param  	Uw :w相输出电压
  * @retval
  */
-void foc::run_UVW(float Uu, float Uv, float Uw)
+void foc::run_UVW(float Uu_in, float Uv_in, float Uw_in)
 {
 	// 设置上限
-	Uu = _constrain(Uu, 0.6f, voltage_limit);
-	Uv = _constrain(Uv, 0.6f, voltage_limit);
-	Uw = _constrain(Uw, 0.6f, voltage_limit);
-	this->Uu = Uu;
-	this->Uv = Uv;
-	this->Uw = Uw;
+	Uu_in = _constrain(Uu_in, 0.6f, voltage_limit);
+	Uv_in = _constrain(Uv_in, 0.6f, voltage_limit);
+	Uw_in = _constrain(Uw_in, 0.6f, voltage_limit);
+	this->Uu = Uu_in;
+	this->Uv = Uv_in;
+	this->Uw = Uw_in;
 
 	// 计算占空比，写入到pwm
 	this->pwm_u->set_ccr(Uu / voltage_power_supply * _tim_autoreload);
 	this->pwm_v->set_ccr(Uv / voltage_power_supply * _tim_autoreload);
 	this->pwm_w->set_ccr(Uw / voltage_power_supply * _tim_autoreload);
+}
+
+/**
+ * @brief  foc 時間输出函数(ccr计数值)
+ * @details
+ * @param  	Tu :u相输出计数值
+ * @param  	Tv :v相输出计数值
+ * @param  	Tw :w相输出计数值
+ * @retval
+ */
+void foc::run_UVW_T(void)
+{
+	// 计算占空比，写入到pwm
+	run_UVW_T((uint16_t)this->Svpwm_Mod.ta,
+			  (uint16_t)this->Svpwm_Mod.tb,
+			  (uint16_t)this->Svpwm_Mod.tc);
+}
+
+/**
+ * @brief  foc 時間输出函数(ccr计数值)
+ * @details
+ * @param  	Tu :u相输出计数值
+ * @param  	Tv :v相输出计数值
+ * @param  	Tw :w相输出计数值
+ * @retval
+ */
+void foc::run_UVW_T(uint16_t Tu, uint16_t Tv, uint16_t Tw)
+{
+	// 计算占空比，写入到pwm
+	this->pwm_u->set_ccr(Tu);
+	this->pwm_v->set_ccr(Tv);
+	this->pwm_w->set_ccr(Tw);
 }
 
 /**
@@ -274,18 +363,39 @@ float foc::init_ZeroElectricalAngle(uint16_t delaytime)
 		return 0;
 
 	/* 有霍尔 */
+	set_ZeroElectricalAngle(0.0f);
 	/* 上电到特定角度 */
-	Clark_Park_Inverse(voltage_limit / 2, 0, 3 * PI / 2);
+	foc_run_mode runMode_temp = this->run_mode;
+	this->run_mode = calMode;
+	this->enable();
+	// Clark_Park_Inverse(voltage_limit / 2, 0, 3 * PI / 2);
+	// Clark_Park_Inverse(0, voltage_limit / 4, 0);
+	this->U_q = 0;
+	this->U_d = voltage_limit / 10;
+	// this->electrical_angle = 0;
+	SvpwmCtrl();
+	run_UVW_T();
+
+	// SvpwmCtrl();
+	// run_UVW_T();
 	/* 等待电机转到该位置 */
-	HAL_Delay(delaytime);
-	/* 编码器读取该位置的机械角度 */
-	shaft_angle = _encoder->get_count();
+	while (delaytime--)
+	{
+		HAL_Delay(1);
+		/* 编码器读取该位置的机械角度 */
+		shaft_angle = _encoder->get_count();
+	}
+
 	/* 转换为该位置绝对电角度 */
-	set_ZeroElectricalAngle(0);
 	shaftAngle_2_electricalAngle();
 	/* 该位置的电角度设置为 初始零电角度 */
 	set_ZeroElectricalAngle(electrical_angle);
 	Clark_Park_Inverse(0, 0, 3 * PI / 2);
+	SvpwmCtrl();
+	run_UVW_T();
+
+	this->run_mode = runMode_temp;
+	this->disable();
 
 	return zero_electrical_angle;
 }
@@ -299,7 +409,7 @@ float foc::init_ZeroElectricalAngle(uint16_t delaytime)
  */
 float foc::shaftAngle_2_electricalAngle(void)
 {
-	shaftAngle_2_electricalAngle(this->shaft_angle);
+	return shaftAngle_2_electricalAngle(this->shaft_angle);
 }
 
 /**
@@ -336,23 +446,180 @@ float foc::_normalizeAngle(float angle)
  */
 void foc::Clark_Park_Inverse(float U_q_input, float U_d_input, float angle_el)
 {
-	this->U_q = _constrain(U_q_input, -(voltage_power_supply) / 2, (voltage_power_supply) / 2);
-	this->U_d = _constrain(U_d, -(voltage_power_supply) / 2, (voltage_power_supply) / 2);
-	angle_el = _normalizeAngle(angle_el + zero_electrical_angle);
+	this->U_q = _constrain(U_q_input, -(voltage_limit) / 2, (voltage_limit) / 2);
+	this->U_d = _constrain(U_d_input, -(voltage_limit) / 2, (voltage_limit) / 2);
+	// angle_el = _normalizeAngle(angle_el + zero_electrical_angle);
 
 	// 帕克逆变换
 	U_alpha = U_d * cos(angle_el) - U_q * sin(angle_el);
 	U_beta = U_q * cos(angle_el) + U_d * sin(angle_el);
-	// 忽略 I_d 项，减少计算量
+	// 电流闭环后不可忽略 I_d 项
 	// U_alpha = -U_q * sin(angle_el);
 	// U_beta = U_q * cos(angle_el);
+}
 
-	float temp_Uu, temp_Uv, temp_Uw; // 中间暂存的 u v w 值，之后输入到 foc 类中
-	// 克拉克逆变换
-	temp_Uu = U_alpha + voltage_power_supply / 2;
-	temp_Uv = (sqrt(3) * U_beta - U_alpha) / 2 + voltage_power_supply / 2;
-	temp_Uw = (-U_alpha - sqrt(3) * U_beta) / 2 + voltage_power_supply / 2;
-	run_UVW(temp_Uu, temp_Uv, temp_Uw);
+/**
+ * @brief  Spwm 控制方式，输出到pwm占空比
+ * @details
+ * @param
+ * @retval
+ */
+void foc::SpwmCtrl(void)
+{
+	this->Uu = U_alpha + voltage_power_supply / 2;
+	this->Uv = (sqrt(3) * U_beta - U_alpha) / 2 + voltage_power_supply / 2;
+	this->Uw = (-U_alpha - sqrt(3) * U_beta) / 2 + voltage_power_supply / 2;
+}
+
+/**
+ * @brief  Svpwm 控制方式，输出到pwm占空比
+ * @details
+ * @param
+ * @retval
+ */
+void foc::SvpwmCtrl(void)
+{
+	/* 变量转移，Svpwm结构体可独立使用 */
+
+	this->Svpwm_Mod.uAlpha = this->U_alpha;
+	this->Svpwm_Mod.uBeta = this->U_beta;
+	this->Svpwm_Mod.ts = this->_tim_autoreload;		  // 时钟周期
+	this->Svpwm_Mod.udc = this->voltage_power_supply; // 输出的母线电压
+	// this->Svpwm_Mod.udc = this->voltage_limit;	// 输出的母线电压--这里放limit是错误的，都被用limit归一化了电压限幅就没有了
+
+	this->Svpwm_Mod.K = sqrt(3) * this->Svpwm_Mod.ts / this->Svpwm_Mod.udc; // Svpwm系数
+	// this->Svpwm_Mod.K = sqrt(3); // 这里我实际上不适用 ts 和 Udc，最后在run_UVW，在调用
+
+	/* 扇区判断 */
+	uint8_t a, b, c, n;
+	this->Svpwm_Mod.u1 = this->Svpwm_Mod.uBeta;
+	this->Svpwm_Mod.u2 = sqrt(3) / 2 * this->Svpwm_Mod.uAlpha - this->Svpwm_Mod.uBeta / 2;
+	this->Svpwm_Mod.u3 = -sqrt(3) / 2 * this->Svpwm_Mod.uAlpha - this->Svpwm_Mod.uBeta / 2;
+
+	if (this->Svpwm_Mod.u1 > 0)
+	{
+		a = 1;
+	}
+	else
+	{
+		a = 0;
+	}
+	if (this->Svpwm_Mod.u2 > 0)
+	{
+		b = 1;
+	}
+	else
+	{
+		b = 0;
+	}
+	if (this->Svpwm_Mod.u3 > 0)
+	{
+		c = 1;
+	}
+	else
+	{
+		c = 0;
+	}
+
+	n = 4 * c + 2 * b + a;
+	switch (n)
+	{
+	case 3:
+		this->Svpwm_Mod.sector = 1;
+		break;
+	case 1:
+		this->Svpwm_Mod.sector = 2;
+		break;
+	case 5:
+		this->Svpwm_Mod.sector = 3;
+		break;
+	case 4:
+		this->Svpwm_Mod.sector = 4;
+		break;
+	case 6:
+		this->Svpwm_Mod.sector = 5;
+		break;
+	case 2:
+		this->Svpwm_Mod.sector = 6;
+		break;
+	}
+
+	/* 计算矢量作用时长 */
+	switch (this->Svpwm_Mod.sector)
+	{
+	case 1:
+		this->Svpwm_Mod.t4 = this->Svpwm_Mod.K * this->Svpwm_Mod.u2;
+		this->Svpwm_Mod.t6 = this->Svpwm_Mod.K * this->Svpwm_Mod.u1;
+		this->Svpwm_Mod.t0 = this->Svpwm_Mod.t7 = (this->Svpwm_Mod.ts - this->Svpwm_Mod.t4 - this->Svpwm_Mod.t6) / 2;
+		break;
+	case 2:
+		this->Svpwm_Mod.t2 = -this->Svpwm_Mod.K * this->Svpwm_Mod.u2;
+		this->Svpwm_Mod.t6 = -this->Svpwm_Mod.K * this->Svpwm_Mod.u3;
+		this->Svpwm_Mod.t0 = this->Svpwm_Mod.t7 = (this->Svpwm_Mod.ts - this->Svpwm_Mod.t2 - this->Svpwm_Mod.t6) / 2;
+		break;
+	case 3:
+		this->Svpwm_Mod.t2 = this->Svpwm_Mod.K * this->Svpwm_Mod.u1;
+		this->Svpwm_Mod.t3 = this->Svpwm_Mod.K * this->Svpwm_Mod.u3;
+		this->Svpwm_Mod.t0 = this->Svpwm_Mod.t7 = (this->Svpwm_Mod.ts - this->Svpwm_Mod.t2 - this->Svpwm_Mod.t3) / 2;
+		break;
+	case 4:
+		this->Svpwm_Mod.t1 = -this->Svpwm_Mod.K * this->Svpwm_Mod.u1;
+		this->Svpwm_Mod.t3 = -this->Svpwm_Mod.K * this->Svpwm_Mod.u2;
+		this->Svpwm_Mod.t0 = this->Svpwm_Mod.t7 = (this->Svpwm_Mod.ts - this->Svpwm_Mod.t1 - this->Svpwm_Mod.t3) / 2;
+		break;
+	case 5:
+		this->Svpwm_Mod.t1 = this->Svpwm_Mod.K * this->Svpwm_Mod.u3;
+		this->Svpwm_Mod.t5 = this->Svpwm_Mod.K * this->Svpwm_Mod.u2;
+		this->Svpwm_Mod.t0 = this->Svpwm_Mod.t7 = (this->Svpwm_Mod.ts - this->Svpwm_Mod.t1 - this->Svpwm_Mod.t5) / 2;
+		break;
+	case 6:
+		this->Svpwm_Mod.t4 = -this->Svpwm_Mod.K * this->Svpwm_Mod.u3;
+		this->Svpwm_Mod.t5 = -this->Svpwm_Mod.K * this->Svpwm_Mod.u1;
+		this->Svpwm_Mod.t0 = this->Svpwm_Mod.t7 = (this->Svpwm_Mod.ts - this->Svpwm_Mod.t4 - this->Svpwm_Mod.t5) / 2;
+		break;
+	default:
+		break;
+	}
+
+	/* Svpwm 生成 */
+	switch (this->Svpwm_Mod.sector)
+	{
+	case 1:
+		this->Svpwm_Mod.ta = this->Svpwm_Mod.t4 + this->Svpwm_Mod.t6 + this->Svpwm_Mod.t7;
+		this->Svpwm_Mod.tb = this->Svpwm_Mod.t6 + this->Svpwm_Mod.t7;
+		this->Svpwm_Mod.tc = this->Svpwm_Mod.t7;
+		break;
+	case 2:
+		this->Svpwm_Mod.ta = this->Svpwm_Mod.t6 + this->Svpwm_Mod.t7;
+		this->Svpwm_Mod.tb = this->Svpwm_Mod.t2 + this->Svpwm_Mod.t6 + this->Svpwm_Mod.t7;
+		this->Svpwm_Mod.tc = this->Svpwm_Mod.t7;
+		break;
+	case 3:
+		this->Svpwm_Mod.ta = this->Svpwm_Mod.t7;
+		this->Svpwm_Mod.tb = this->Svpwm_Mod.t2 + this->Svpwm_Mod.t3 + this->Svpwm_Mod.t7;
+		this->Svpwm_Mod.tc = this->Svpwm_Mod.t3 + this->Svpwm_Mod.t7;
+		break;
+	case 4:
+		this->Svpwm_Mod.ta = this->Svpwm_Mod.t7;
+		this->Svpwm_Mod.tb = this->Svpwm_Mod.t3 + this->Svpwm_Mod.t7;
+		this->Svpwm_Mod.tc = this->Svpwm_Mod.t1 + this->Svpwm_Mod.t3 + this->Svpwm_Mod.t7;
+		break;
+	case 5:
+		this->Svpwm_Mod.ta = this->Svpwm_Mod.t5 + this->Svpwm_Mod.t7;
+		this->Svpwm_Mod.tb = this->Svpwm_Mod.t7;
+		this->Svpwm_Mod.tc = this->Svpwm_Mod.t1 + this->Svpwm_Mod.t5 + this->Svpwm_Mod.t7;
+		break;
+	case 6:
+		this->Svpwm_Mod.ta = this->Svpwm_Mod.t4 + this->Svpwm_Mod.t5 + this->Svpwm_Mod.t7;
+		this->Svpwm_Mod.tb = this->Svpwm_Mod.t7;
+		this->Svpwm_Mod.tc = this->Svpwm_Mod.t5 + this->Svpwm_Mod.t7;
+		break;
+	}
+
+	// /* 不带入时间和母线电压的归一化占空比，在最后运行函数里面算 */
+	// this->Uu = this->Svpwm_Mod.ta;
+	// this->Uv = this->Svpwm_Mod.tb;
+	// this->Uw = this->Svpwm_Mod.tc;
 }
 
 /**
@@ -396,10 +663,38 @@ void foc::set_speed(float _target_speed, foc_run_mode mode)
  * @param  target_speed :目标角度，单位 度°
  * @retval
  */
-void foc::set_angle(float _target_angle)
+void foc::set_degree(float _target_degree)
 {
-	target_angle = _target_angle;
+	target_degree = _target_degree;
 	run_mode = angleMode;
+}
+
+/* ************************** 采样功能函数 **************************************** */
+
+/**
+ * @brief  编码器采样更新函数
+ * @details
+ * @param
+ * @retval
+ */
+void foc::encoder_update(void)
+{
+	if (_encoder != nullptr)
+	{
+		/* 过溢出点速度改变判断 */
+		float speed_temp = this->encoder_dir * this->_encoder->get_speed();
+		speed_temp = Rad2Rot(speed_temp);
+		if (ABS(speed_temp) < 5000)
+		{
+			this->speed = speed_temp;
+		}
+		else
+		{
+		}
+		this->speed = _SPEED_LowPassFilter->run(this->speed);
+		this->shaft_angle = this->encoder_dir * this->_encoder->date;
+		shaftAngle_2_electricalAngle(this->encoder_dir * this->shaft_angle);
+	}
 }
 
 /**
@@ -410,121 +705,269 @@ void foc::set_angle(float _target_angle)
  */
 void foc::run(void)
 {
-	/* 速度采集放在最开始 */
-	this->speed = this->encoder_dir * this->_encoder->get_speed();
-	this->speed = Rad2Rot(this->speed);
-	this->speed = _SPEED_LowPassFilter->run(this->speed);
-	this->shaft_angle = this->encoder_dir * this->_encoder->date;
-	shaftAngle_2_electricalAngle(this->encoder_dir * this->shaft_angle);
-	/* 电流转换 */
-	this->_current_sensor->update(); // 放到定时器中运行了
-	this->Clark_Park(this->_current_sensor->phase_u.data,
-					 this->_current_sensor->phase_v.data,
-					 this->_current_sensor->phase_w.data,
-					 this->electrical_angle);
-	/* 电流低通滤波 */
-	this->I_q = this->_Iq_LowPassFilter->run(this->I_q);
-	this->I_d = this->_Id_LowPassFilter->run(this->I_d);
-	/* 开环运行模式 */
-	if (this->run_mode == openloop)
+	// /* 编码器数据更新在最开始 */
+	// this->encoder_update();
+	// /* 电流转换 */
+	// if (_current_sensor != nullptr)
+	// {
+	// 	this->_current_sensor->update(); // 放到定时器中运行了
+	// 	this->Clark_Park(this->_current_sensor->phase_u.data,
+	// 					 this->_current_sensor->phase_v.data,
+	// 					 this->_current_sensor->phase_w.data,
+	// 					 this->electrical_angle);
+
+	// 	/* 电流低通滤波 */
+	// 	this->I_q = this->_Iq_LowPassFilter->run(this->I_q);
+	// 	this->I_d = this->_Id_LowPassFilter->run(this->I_d);
+	// }
+	// /* 校准模式 */
+	// if (this->run_mode == calMode)
+	// {
+	// 	this->electrical_angle = 0;
+	// 	this->U_q = 0;
+	// 	this->U_d = voltage_limit / 4;
+	// 	set_ZeroElectricalAngle(0.0f);
+	// }
+	// /* 开环运行模式 */
+	// else if (this->run_mode == openloop)
+	// {
+	// 	uint64_t now_us = MICROS_us(); // 获得从芯片启动开始的微秒时间
+	// 	/* 计算每个 loop 的运行时间 */
+	// 	static uint32_t openloop_timestamp; // 用于计算时间间隔
+	// 	float Ts = (now_us - openloop_timestamp) * 1e-6f;
+
+	// 	/* now_us 会在大约 70min 后跳变到 0 ，因此需要进行修正 */
+	// 	/* Ts 过大直接修正为一个较小的值 */
+	// 	// Ts = Ts > 0.5f ? 1e-3f : Ts;
+	// 	if (Ts <= 0 || Ts > 0.5f)
+	// 		Ts = 1e-3f;
+	// 	/* 通过时间的目标速度虚拟的角度，需要对机械角度归一化为 [0,2PI] */
+	// 	static float openloop_shaft_angle;
+	// 	openloop_shaft_angle = _normalizeAngle(openloop_shaft_angle + Rot2Rad(target_speed) * Ts);
+	// 	/* 计算电角度 */
+	// 	shaftAngle_2_electricalAngle(openloop_shaft_angle);
+
+	// 	/* 电流闭环运行 */
+	// 	// this->target_current = voltage_limit / 3;
+	// 	// this->U_q = _PID_CURRENT->pid_run(this->target_current - this->I_q);
+	// 	// this->U_d = _PID_CURRENT->pid_run(0 - this->I_d);
+	// 	/* 直接设置 I_q 为电压上限，进行输出 */
+	// 	this->U_q = voltage_limit / 3;
+	// 	this->U_d = 0;
+	// 	/* 放在最后了 */
+	// 	// Clark_Park_Inverse(I_q, 0, electrical_angle);
+	// 	openloop_timestamp = now_us;
+	// }
+	// /* 速度闭环运行模式 */
+	// else if (this->run_mode == speedMode)
+	// {
+	// 	/* 放在最上面了 */
+	// 	/* 速度环部分 */
+	// 	// /* 转换输入的速度值 角度值 变为弧度值 */
+	// 	// target_speed = (target_speed / 180.0f) * PI;
+	// 	/* 获取速度角度 */
+	// 	// speed = _encoder->get_speed();
+	// 	// speed = Rad2Rot(speed);
+	// 	/* 速度通过低通滤波器 */
+	// 	// speed = _SPEED_LowPassFilter->run(speed);
+	// 	/* 获得角度值 */
+	// 	// shaft_angle = _encoder->date;
+	// 	/* 转化为电角度 */
+	// 	// shaftAngle_2_electricalAngle();
+
+	// 	/* 控制死区 */
+	// 	float err_temp = this->target_speed - this->speed;
+	// 	if (err_temp > -0.3 && err_temp < 0.3)
+	// 		err_temp = 0;
+	// 	/* 运行pid */
+	// 	this->target_current = _PID_IN->pid_run(err_temp);
+	// 	/* 电流环部分 */
+	// 	this->U_q = _PID_IQ->pid_run(this->target_current - this->I_q);
+	// 	this->U_d = _PID_ID->pid_run(0 - this->I_d);
+	// }
+	// /* 位置闭环运行模式 */
+	// else if (this->run_mode == angleMode)
+	// {
+
+	// 	/* 运行pid,这里是串级pid，先位置外环再速度内环 */
+	// 	this->degree = Rad2Angle(shaft_angle);
+	// 	this->target_speed = _PID_OUT->pid_run(this->target_degree - this->degree);
+	// 	/* 速度环部分 */
+	// 	/* 可以绕过速度环 */
+	// 	// this->target_current = _PID_IN->pid_run(this->target_speed - speed);
+	// 	this->target_current = _PID_OUT->pid_run(this->target_degree - this->degree);
+	// 	/* 电流环部分 */
+	// 	this->U_q = _PID_IQ->pid_run(this->target_current - this->I_q);
+	// 	this->U_d = _PID_ID->pid_run(0 - this->I_d);
+	// }
+	// /* 电流闭环运行 */
+	// else if (this->run_mode == currentMode)
+	// {
+	// 	/* 获取机械角度 */
+	// 	// shaft_angle = this->_encoder->get_date();
+	// 	/* 转化为电角度 */
+	// 	// shaftAngle_2_electricalAngle();
+	// 	/* 电流采样 */
+	// 	// this->_current_sensor->update();
+	// 	/* 运行 克拉克和帕克 变换 */
+	// 	// this->Clark_Park(this->_current_sensor->phase_u.data,
+	// 	// 				 this->_current_sensor->phase_v.data,
+	// 	// 				 this->_current_sensor->phase_w.data,
+	// 	// 				 this->electrical_angle);
+	// 	/* 运行pid,这里是串级pid，运行电流环 */
+	// 	this->U_q = _PID_IQ->pid_run(this->target_current - this->I_q);
+	// 	this->U_d = _PID_ID->pid_run(0 - this->I_d);
+	// 	/* 仅电流环d轴调试使用 */
+	// 	// this->U_q = 0;
+	// 	// this->U_d = _PID_ID->pid_run(this->target_current - this->I_d);
+	// }
+
+	// Clark_Park_Inverse(U_q, U_d, electrical_angle); // 克拉克帕克变换
+	// // Clark_Park_Inverse(0, 4, 0); // 零电角度调试
+	// // SpwmCtrl();										// 计算Spwm方式的占空比
+	// // run_UVW();										// 输出占空比
+
+	// // Clark_Park_Inverse(voltage_limit / 2, 0, 3 * PI / 2);
+
+	// SvpwmCtrl();
+	// run_UVW_T();
+}
+
+/**
+ * @brief  位置环运行函数
+ * @details 放在周期循环中自动更新运行状态
+ * @param
+ * @retval
+ */
+void foc::angle_run(void)
+{
+	/* 不进入模式也把数据算出来 */
+	this->degree = Rad2Angle(shaft_angle);
+
+	if (this->run_mode == angleMode)
 	{
-		uint64_t now_us = MICROS_us(); // 获得从芯片启动开始的微秒时间
-		/* 计算每个 loop 的运行时间 */
-		static uint32_t openloop_timestamp; // 用于计算时间间隔
-		float Ts = (now_us - openloop_timestamp) * 1e-6f;
-
-		/* now_us 会在大约 70min 后跳变到 0 ，因此需要进行修正 */
-		/* Ts 过大直接修正为一个较小的值 */
-		// Ts = Ts > 0.5f ? 1e-3f : Ts;
-		if (Ts <= 0 || Ts > 0.5f)
-			Ts = 1e-3f;
-		/* 通过时间的目标速度虚拟的角度，需要对机械角度归一化为 [0,2PI] */
-		static float openloop_shaft_angle;
-		openloop_shaft_angle = _normalizeAngle(openloop_shaft_angle + Rot2Rad(target_speed) * Ts);
-		/* 计算电角度 */
-		shaftAngle_2_electricalAngle(openloop_shaft_angle);
-
-		/* 电流闭环运行 */
-		// this->target_current = voltage_limit / 3;
-		// this->U_q = _PID_CURRENT->pid_run(this->target_current - this->I_q);
-		// this->U_d = _PID_CURRENT->pid_run(0 - this->I_d);
-		/* 直接设置 I_q 为电压上限，进行输出 */
-		this->U_q = voltage_limit / 3;
-		this->U_d = 0;
-		/* 放在最后了 */
-		// Clark_Park_Inverse(I_q, 0, electrical_angle);
-		openloop_timestamp = now_us;
+		/* 运行pid,这里是串级pid，先位置外环再速度内环 */
+		this->target_speed = _PID_OUT->pid_run(this->target_degree - this->degree);
 	}
-	/* 速度闭环运行模式 */
-	else if (this->run_mode == speedMode)
-	{
-		/* 放在最上面了 */
-		/* 速度环部分 */
-		// /* 转换输入的速度值 角度值 变为弧度值 */
-		// target_speed = (target_speed / 180.0f) * PI;
-		/* 获取速度角度 */
-		// speed = _encoder->get_speed();
-		// speed = Rad2Rot(speed);
-		/* 速度通过低通滤波器 */
-		// speed = _SPEED_LowPassFilter->run(speed);
-		/* 获得角度值 */
-		// shaft_angle = _encoder->date;
-		/* 转化为电角度 */
-		// shaftAngle_2_electricalAngle();
+}
 
-		/* 控制死区 */
+/**
+ * @brief  速度环运行函数
+ * @details 放在周期循环中自动更新运行状态
+ * @param
+ * @retval
+ */
+void foc::speed_run(void)
+{
+	/* 速度频率不能高了，只能放在这里 */
+	this->encoder_update();
+	/* 不进入模式也把数据算出来 */
+	if (this->run_mode == speedMode || this->run_mode == angleMode)
+	{
 		float err_temp = this->target_speed - this->speed;
 		if (err_temp > -0.3 && err_temp < 0.3)
 			err_temp = 0;
 		/* 运行pid */
 		this->target_current = _PID_IN->pid_run(err_temp);
-		/* 电流环部分 */
-		this->U_q = _PID_CURRENT->pid_run(this->target_current - this->I_q);
-		this->U_d = _PID_CURRENT->pid_run(0 - this->I_d);
 	}
-	/* 位置闭环运行模式 */
-	else if (this->run_mode == angleMode)
+	if (this->run_mode == openloop)
 	{
-		/* 位置环部分 */
-		/* 获取速度角度 */
-		// speed = _encoder->get_speed();
-		// speed = Rad2Rot(speed);
-		/* 速度通过低通滤波器 */
-		// speed = _SPEED_LowPassFilter->run(speed);
-		/* 转换输入的角度值变为弧度值 */
-		// target_angle = (target_angle / 180.0f) * PI;
-		/* 获取机械角度 */
-		// shaft_angle = _encoder->date;
-		/* 转化为电角度 */
-		// shaftAngle_2_electricalAngle();
-		/* 运行pid,这里是串级pid，先位置外环再速度内环 */
-		this->target_speed = _PID_OUT->pid_run(this->target_angle - Rad2Angle(shaft_angle));
-		/* 速度环部分 */
-		this->target_current = _PID_IN->pid_run(this->target_speed - speed);
-		/* 电流环部分 */
-		this->U_q = _PID_CURRENT->pid_run(this->target_current - this->I_q);
-		this->U_d = _PID_CURRENT->pid_run(0 - this->I_d);
 	}
-	/* 电流闭环运行 */
-	else if (this->run_mode == currentMode)
-	{
-		/* 获取机械角度 */
-		// shaft_angle = this->_encoder->get_date();
-		/* 转化为电角度 */
-		// shaftAngle_2_electricalAngle();
-		/* 电流采样 */
-		// this->_current_sensor->update();
-		/* 运行 克拉克和帕克 变换 */
-		// this->Clark_Park(this->_current_sensor->phase_u.data,
-		// 				 this->_current_sensor->phase_v.data,
-		// 				 this->_current_sensor->phase_w.data,
-		// 				 this->electrical_angle);
-		/* 运行pid,这里是串级pid，运行电流环 */
-		this->U_q = _PID_CURRENT->pid_run(this->target_current - this->I_q);
-		this->U_d = _PID_CURRENT->pid_run(0 - this->I_d);
-	}
+}
 
-	Clark_Park_Inverse(U_q, U_d, electrical_angle);
+/**
+ * @brief  电流环运行函数
+ * @details 放在周期循环中自动更新运行状态
+ * @param
+ * @retval
+ */
+void foc::current_run(void)
+{
+	/* 编码器数据更新在最开始 */
+	// this->_encoder->get_date();	//这个位置采样编码器频率跟不上
+	/* 电流转换 */
+	if (_current_sensor != nullptr)
+	{
+		this->_current_sensor->update(); // 放到定时器中运行了
+		this->Clark_Park(this->_current_sensor->phase_u.data,
+						 this->_current_sensor->phase_v.data,
+						 this->_current_sensor->phase_w.data,
+						 this->electrical_angle);
+
+		/* 电流低通滤波 */
+		// this->I_q = this->_Iq_LowPassFilter->run(this->I_q);
+		// this->I_d = this->_Id_LowPassFilter->run(this->I_d);
+
+		/* 电流闭环 */
+		if (this->run_mode == calMode)
+		{
+			this->U_q = 0;
+			this->U_d = voltage_limit / 10;
+			set_ZeroElectricalAngle(0.0f);
+
+			Clark_Park_Inverse(U_q, U_d, 0); // 克拉克帕克变换
+			SvpwmCtrl();
+			run_UVW_T();
+			return;
+		}
+		else if (this->run_mode == openloop) // 开环强拖
+		{
+			static uint16_t openloop_flag = 0;
+			static float openloop_shaft_angle;
+			openloop_flag++;
+			if (openloop_flag == 10)
+			{
+				uint64_t now_us = MICROS_us(); // 获得从芯片启动开始的微秒时间
+				/* 计算每个 loop 的运行时间 */
+				static uint32_t openloop_timestamp; // 用于计算时间间隔
+				float Ts = (now_us - openloop_timestamp) * 1e-6f;
+
+				/* now_us 会在大约 70min 后跳变到 0 ，因此需要进行修正 */
+				/* Ts 过大直接修正为一个较小的值 */
+				// Ts = Ts > 0.5f ? 1e-3f : Ts;
+				if (Ts <= 0 || Ts > 0.5f)
+					Ts = 1e-3f;
+				/* 通过时间的目标速度虚拟的角度，需要对机械角度归一化为 [0,2PI] */
+
+				openloop_shaft_angle = _normalizeAngle(openloop_shaft_angle + Rot2Rad(target_speed) * Ts);
+				/* 计算电角度 */
+				shaftAngle_2_electricalAngle(openloop_shaft_angle);
+
+				/* 电流闭环运行 */
+				// this->target_current = voltage_limit / 3;
+				// this->U_q = _PID_CURRENT->pid_run(this->target_current - this->I_q);
+				// this->U_d = _PID_CURRENT->pid_run(0 - this->I_d);
+				/* 直接设置 I_q 为电压上限，进行输出 */
+				this->U_q = voltage_limit / 4;
+				this->U_d = 0;
+				/* 放在最后了 */
+				// Clark_Park_Inverse(I_q, 0, electrical_angle);
+				openloop_timestamp = now_us;
+				openloop_flag = 0;
+			}
+			shaftAngle_2_electricalAngle(openloop_shaft_angle);
+		}
+		else // 需要电流闭环下
+		{
+			/* 运行pid,这里是串级pid，运行电流环 */
+			this->U_q = _PID_IQ->pid_run(this->target_current - this->I_q);
+			this->U_d = _PID_ID->pid_run(0 - this->I_d);
+
+			/* 避开电流环，直接速度环进来 */
+			// this->U_q = this->target_current;
+			// this->U_d = 0;
+
+			/* 仅电流环d轴调试使用 */
+			// this->U_q = 0;
+			// this->U_d = _PID_ID->pid_run(this->target_current - this->I_d);
+		}
+
+		Clark_Park_Inverse(U_q, U_d, electrical_angle); // 克拉克帕克变换
+		// Clark_Park_Inverse(0, 4, 0); // 零电角度调试
+
+		SvpwmCtrl();
+		run_UVW_T();
+	}
 }
 
 /* ------------------------------------------------------------------------------------------------------------------------------------------ */
@@ -552,14 +995,25 @@ void foc::set_current(float _target_current)
 }
 
 /**
- * @brief  foc 电流环设置函数
+ * @brief  foc 电流Q环设置函数
  * @details
  * @param  	_PID_CURRENT :链接配置的 pid 类，用于控制电流闭环的，属于电流环
  * @retval
  */
-void foc::set_PID_CURRENT(pid *_PID_CURRENT)
+void foc::set_PID_IQ(pid *_PID_IQ)
 {
-	this->_PID_CURRENT = _PID_CURRENT;
+	this->_PID_IQ = _PID_IQ;
+}
+
+/**
+ * @brief  foc 电流D环设置函数
+ * @details
+ * @param  	_PID_CURRENT :链接配置的 pid 类，用于控制电流闭环的，属于电流环
+ * @retval
+ */
+void foc::set_PID_ID(pid *_PID_ID)
+{
+	this->_PID_ID = _PID_ID;
 }
 
 /**
@@ -570,7 +1024,6 @@ void foc::set_PID_CURRENT(pid *_PID_CURRENT)
  */
 void foc::Clark_Park(float Uu_in, float Uv_in, float Uw_in, float angle_el)
 {
-	this->_current_sensor->update();
 	this->I_alpha = Uu_in;
 	this->I_beta = Uu_in / sqrt(3) + 2 * Uv_in / sqrt(3);
 
@@ -595,28 +1048,22 @@ WEAK current_sensor::current_sensor(bsp_ADC_DMA *adc_dma)
  * @param
  * @retval
  */
-void current_sensor::set_phase(phase *_phase, int8_t channel, float ratio)
+void current_sensor::set_phase(phase *_phase, int8_t channel)
 {
 	_phase->channel = channel;
-	_phase->ratio = ratio;
 }
 
 /**
  * @brief  current phase 设置函数
  * @details
- * @param	三个通道的序号 电流计算系数
+ * @param	三个通道的序号
  * @retval
  */
-void current_sensor::init(int8_t channel_u, int8_t channel_v, int8_t channel_w, float ratio)
+void current_sensor::init(int8_t channel_u, int8_t channel_v, int8_t channel_w)
 {
-	init(channel_u, channel_v, channel_w, ratio, ratio, ratio);
-}
-
-void current_sensor::init(int8_t channel_u, int8_t channel_v, int8_t channel_w, float ratio_u, float ratio_v, float ratio_w)
-{
-	set_phase(&phase_u, channel_u, ratio_u);
-	set_phase(&phase_v, channel_v, ratio_v);
-	set_phase(&phase_w, channel_w, ratio_w);
+	set_phase(&phase_u, channel_u);
+	set_phase(&phase_v, channel_v);
+	set_phase(&phase_w, channel_w);
 }
 
 /**
@@ -739,10 +1186,18 @@ void current_sensor::update(void)
 		}
 	}
 	/* 系数计算 */
-	phase_u.data = phase_u.ratio * ((11 / 10.39 * 0.39 * 3.3) - (phase_u.data * 3.3 / 4095)) * 0.1 - phase_u.offset;
-	phase_v.data = phase_v.ratio * ((11 / 10.39 * 0.39 * 3.3) - (phase_v.data * 3.3 / 4095)) * 0.1 - phase_v.offset;
-	// phase_w.data = phase_w.ratio * ((11 / 10.39 * 0.39 * 3.3) - (phase_w.data * 3.3 / 4095)) * 0.1 - phase_w.offset;
-	phase_w.data = -(phase_u.data + phase_v.data);
+	// phase_u.data = phase_u.ratio * ((11 / 10.39 * 0.39 * 3.3) - (phase_u.data * 3.3 / 4095)) * 0.1 - phase_u.offset;
+	// phase_v.data = phase_v.ratio * ((11 / 10.39 * 0.39 * 3.3) - (phase_v.data * 3.3 / 4095)) * 0.1 - phase_v.offset;
+	// // phase_w.data = phase_w.ratio * ((11 / 10.39 * 0.39 * 3.3) - (phase_w.data * 3.3 / 4095)) * 0.1 - phase_w.offset;
+	// phase_w.data = -(phase_u.data + phase_v.data);
+
+	// phase_u.data = phase_u.data;
+	// phase_v.data = phase_v.data;
+	// phase_w.data = phase_w.data;
+
+	phase_u.data = (phase_u.data - 2048) * 0.008056640625f - phase_u.offset;
+	phase_v.data = (phase_v.data - 2048) * 0.008056640625f - phase_v.offset;
+	phase_w.data = (phase_w.data - 2048) * 0.008056640625f - phase_w.offset;
 }
 
 /* 以下内容放在定时器中断里 */

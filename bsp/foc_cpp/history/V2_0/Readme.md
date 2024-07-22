@@ -19,7 +19,7 @@
    | <font color=DeepSkyBlue>1.1</font> | <font color=DeepSkyBlue>2023-8-31</font> |<font color=DeepSkyBlue>重写运行逻辑，改为模式运行</font>|
    | <font color=DeepSkyBlue>2.0 Beta</font> | <font color=DeepSkyBlue>2023-9-18</font> | <font color=DeepSkyBlue>新增电流采样和电流闭环，但是没有调通</font> |
    | <font color=DeepSkyBlue>2.0</font> | <font color=DeepSkyBlue>2023-10-20</font> | <font color=DeepSkyBlue>调通电流采样与电流闭环</font> |
-   | <font color=DeepSkyBlue>2.1</font> | <font color=DeepSkyBlue>2024-7-22</font> | <font color=DeepSkyBlue>修改驱动方式为SVPWM，并优化调用函数</font> |
+   |                                    |                                          |                                                              |
 
 
 
@@ -61,11 +61,9 @@ public:
 	TIM_HandleTypeDef *htim; // 使用的时钟
 	uint32_t TIM_CHANNEL;	 // 使用的时钟通道计数值
 
-	PWM_STATE __TIM_EX_FLAG = PWM_DISABLE; // 互补输出使能，默认为关闭
-
 	// 成员函数
 	pwmio(void){};
-	pwmio(TIM_HandleTypeDef *htim, uint32_t TIM_CHANNEL, PWM_STATE __TIM_EX_FLAG = PWM_DISABLE);
+	pwmio(TIM_HandleTypeDef *htim, uint32_t TIM_CHANNEL);
 	void set_ccr(uint16_t ccr);		 // 设置 pwmio 的 比较值
 	void set_state(PWM_STATE state); // pwm 输出控制函数
 
@@ -73,103 +71,18 @@ protected:
 	uint16_t ccr;	 // 通道的比较值
 	PWM_STATE state; // pwm输出状态
 };
-
-/* 用来设定 foc 正转的旋转方向 */
-typedef enum
-{
-	FORWARD = 1,
-	REVERSE = -1
-} DIR_STATE;
 ```
 
 * 构建的 pwm io 输出类，用于快速声明一个 pwm 输出的 io 口，对 pwm 相关内容进行快速控制
-* <font color=DeepSkyBlue>注意！！！</font> DIR_STATE 在需要用到电角度闭环时非常重要，自行测试电角度方向，不正确会卡在一个相上
 
 
 
 ### 3.2 foc 类介绍
 
 ```cpp
-/* ****************** 电流采样传感器构造函数 ************************** */
-class current_sensor
-{
-public:
-	/* 相电流结构体声明 */
-	struct phase
-	{
-		float data;		// 节点上存储的元素
-		int8_t channel; // 链接 bsp_ADC_DMA 的数据序号
-		float offset;	// 补偿值
-		// float ratio = 1; // 电流转换系数
-		phase(void){};
-		phase(float x) : data(x) {} // 节点的构造函数
-		phase(float x, int8_t channel) : data(x), channel(channel) {}
-	};
-
-	bsp_ADC_DMA *adc_dma; // 连接的adc采样类
-
-	phase phase_u, phase_v, phase_w; // 三个相
-
-
-	// 成员函数
-	current_sensor(void){};
-	current_sensor(bsp_ADC_DMA *adc_dma);
-	void set_phase(phase *_phase, int8_t channel);
-	void calibration(uint16_t times);								 // 偏差校准函数
-	void init(int8_t channel_u, int8_t channel_v, int8_t channel_w); // 初始化函数
-	// ~current();
-	void update(void); // 数据更新
-
-private:
-};
-
-typedef enum
-{
-	openloop = 0, // 无编码器开环运行
-	speedMode,	  // 速度运行
-	angleMode,	  // 角度运行
-	currentMode,  // 电流(力矩)运行
-	calMode,	  // 校准模式，闭环不允许运行
-} foc_run_mode;
-
-/**************************			foc 构造函数				*************************/
-
-/* foc 使能的枚举类型 */
-typedef enum
-{
-	FOC_DISABLE = 0,
-	FOC_ENABLE = 1
-} FOC_STATE;
-
 class foc
 {
 public:
-	/* Svpwm 功能结构体 */
-	struct Svpwm_Struct
-	{
-		float uAlpha;	// 阿尔法轴目标电压 	(最大值为母线电压 * sqrt(3) / 3)
-		float uBeta;	// 贝塔轴目标电压   	(最大值为母线电压 * sqrt(3) / 3)
-		float u1;		// 用于扇区判断
-		float u2;		// 用于扇区判断
-		float u3;		// 用于扇区判断
-		float t0;		// 0矢量作用时长
-		float t1;		// 1矢量作用时长
-		float t2;		// 2矢量作用时长
-		float t3;		// 3矢量作用时长
-		float t4;		// 4矢量作用时长
-		float t5;		// 5矢量作用时长
-		float t6;		// 6矢量作用时长
-		float t7;		// 7矢量作用时长
-		float ta;		// a相作用时长
-		float tb;		// b相作用时长
-		float tc;		// c相作用时长
-		float ts;		// SVPWM周期
-		float K;		// SVPWM 系数K =  sqrt(3) * Ts / Udc
-		float udc;		// 母线电压
-		uint8_t sector; // 扇区索引
-	};
-	Svpwm_Struct Svpwm_Mod; // 调用的Svpwm结构体
-
 	pwmio *pwm_u, *pwm_v, *pwm_w; // 三个pwm控制电机三相
 
 	/* EN 使能IO */
@@ -177,12 +90,10 @@ public:
 	uint16_t EN_GPIO_Pin;		// 电机使能引脚
 
 	/* 电机硬相关配置参数 */
-	DIR_STATE dir;						 // 正转的旋转方向
-	uint8_t pole_pairs;					 // 极对数
-	float shaft_angle;					 // 机械角度，单位 rad
-	float degree;						 // 机械角度，单位 度,仅方便调试
-	float electrical_angle;				 // 电角度
-	FOC_STATE motor_state = FOC_DISABLE; // 电机使能情况
+	DIR_STATE dir;			// 正转的旋转方向
+	uint8_t pole_pairs;		// 极对数
+	float shaft_angle;		// 机械角度，单位 rad
+	float electrical_angle; // 电角度
 
 	/* 软配置参数 */
 	/* 原始电角度偏差值 */
@@ -191,10 +102,9 @@ public:
 	float voltage_limit;		// 输出限制电压
 	float voltage_power_supply; // 电源电压
 	/* PID */
-	pid *_PID_OUT; // 外环位置环
-	pid *_PID_IN;  // 内环速度环
-	pid *_PID_IQ;  // 电流q环
-	pid *_PID_ID;  // 电流d环
+	pid *_PID_OUT;	   // 外环位置环
+	pid *_PID_IN;	   // 内环速度环
+	pid *_PID_CURRENT; // 电流环
 	/* 编码器 */
 	encoder *_encoder = nullptr;	 // 使用的编码器
 	DIR_STATE encoder_dir = FORWARD; // 霍尔传感器方向
@@ -202,13 +112,13 @@ public:
 	current_sensor *_current_sensor = nullptr; // 使用的电流采样
 	/* 滤波器配置 */
 	LowPassFilter *_SPEED_LowPassFilter = new LowPassFilter(0.01f); // 速度低通滤波，默认配置一个低通滤波器，时间常数为 10ms
-	LowPassFilter *_Iq_LowPassFilter = new LowPassFilter(0.001f);	// q电流低通滤波，默认配置一个低通滤波器，时间常数为 10ms
-	LowPassFilter *_Id_LowPassFilter = new LowPassFilter(0.001f);	// d电流低通滤波，默认配置一个低通滤波器，时间常数为 10ms
+	LowPassFilter *_Iq_LowPassFilter = new LowPassFilter(0.01f);	// q电流低通滤波，默认配置一个低通滤波器，时间常数为 10ms
+	LowPassFilter *_Id_LowPassFilter = new LowPassFilter(0.01f);	// d电流低通滤波，默认配置一个低通滤波器，时间常数为 10ms
 
 	/* 运行中间参数 */
 	/* 目标运行值 */
 	float target_speed;	  // 目标速度
-	float target_degree;  // 目标角度
+	float target_angle;	  // 目标角度
 	float target_current; // 目标电流
 	/* 运行状态 */
 	foc_run_mode run_mode = speedMode; // 当前运行状态
@@ -252,17 +162,17 @@ public:
 
 	void set_PID_OUT(pid *_PID_OUT);						  // 连接 PID 位置环
 	void set_PID_IN(pid *_PID_IN);							  // 连接 PID 速度环
-	void set_PID_IQ(pid *_PID_IQ);							  // 连接 PID 电流Q环
-	void set_PID_ID(pid *_PID_ID);							  // 连接 PID 电D流环
+	void set_PID_CURRENT(pid *_PID_CURRENT);				  // 连接 PID 电流环
 	void set_encoder(encoder *_encoder);					  // 连接 编码器
 	void set_current_sensor(current_sensor *_current_sensor); // 连接 电流软传感器
 
 	/* 运行目标设置函数 */
 	void set_speed(float _target_speed);					// 设置目标速度
 	void set_speed(float _target_speed, foc_run_mode mode); // 带模式的目标速度
-	void set_degree(float _target_speed);					// 设置目标角度
+	void set_angle(float _target_speed);					// 设置目标角度
 	void set_current(float _target_current);				// 设置目标电流
 
+	// 保护成员函数
 	/* 数据转换函数 */
 	float shaftAngle_2_electricalAngle(void);					 // 电角度转换函数
 	float shaftAngle_2_electricalAngle(float shaft_angle_putin); // 电角度转换函数
@@ -271,22 +181,11 @@ public:
 	/* 运行计算函数 */
 	void Clark_Park_Inverse(float I_q, float I_d, float angle_el);			// 输入I_q，I_d，和电角度，通过克拉克与帕克逆变换
 	void Clark_Park(float Uu_in, float Uv_in, float Uw_in, float angle_el); // 电流计算 克拉克和帕克变换
-	void SpwmCtrl(void);													// Spwm控制方式
-	void SvpwmCtrl(void);													// Svpwm方式实现
-	void run_UVW(void);														// 根据最后电压运行函数
-	void run_UVW(float Uu_in, float Uv_in, float Uw_in);					// 根据最后电压运行函数
-	void run_UVW_T(void);													// foc 時間输出函数(ccr计数值)
-	void run_UVW_T(uint16_t Tu, uint16_t Tv, uint16_t Tw);					// foc 時間输出函数(ccr计数值)
+	void run_UVW(float Uu, float Uv, float Uw);								// 根据最后电压运行函数
 
-	/* 采样功能函数 */
-	void encoder_update(void); // 编码器采样更新函数
 	/* 周期运行功能函数 */
 	void run(void); // foc自动运行函数
-	void current_run(void);
-	void speed_run(void);
-	void angle_run(void);
 
-	// 保护成员函数
 protected:
 	uint16_t _tim_autoreload; // 当前时钟的重装载值
 };
@@ -345,199 +244,133 @@ void foc::init(void)
 #### 3.2.3 运行函数
 
 ```cpp
-
 /**
- * @brief  位置环运行函数
+ * @brief  运行函数
  * @details 放在周期循环中自动更新运行状态
  * @param
  * @retval
  */
-void foc::angle_run(void)
+void foc::run(void)
 {
-	/* 不进入模式也把数据算出来 */
-	this->degree = Rad2Angle(shaft_angle);
-
-	if (this->run_mode == angleMode)
+	/* 速度采集放在最开始 */
+	this->speed = this->encoder_dir * this->_encoder->get_speed();
+	this->speed = Rad2Rot(this->speed);
+	this->speed = _SPEED_LowPassFilter->run(this->speed);
+	this->shaft_angle = this->encoder_dir * this->_encoder->date;
+	shaftAngle_2_electricalAngle(this->encoder_dir * this->shaft_angle);
+	/* 电流转换 */
+	this->_current_sensor->update(); // 放到定时器中运行了
+	this->Clark_Park(this->_current_sensor->phase_u.data,
+					 this->_current_sensor->phase_v.data,
+					 this->_current_sensor->phase_w.data,
+					 this->electrical_angle);
+	/* 电流低通滤波 */
+	this->I_q = this->_Iq_LowPassFilter->run(this->I_q);
+	this->I_d = this->_Id_LowPassFilter->run(this->I_d);
+	/* 开环运行模式 */
+	if (this->run_mode == openloop)
 	{
-		/* 运行pid,这里是串级pid，先位置外环再速度内环 */
-		this->target_speed = _PID_OUT->pid_run(this->target_degree - this->degree);
+		uint64_t now_us = MICROS_us(); // 获得从芯片启动开始的微秒时间
+		/* 计算每个 loop 的运行时间 */
+		static uint32_t openloop_timestamp; // 用于计算时间间隔
+		float Ts = (now_us - openloop_timestamp) * 1e-6f;
+
+		/* now_us 会在大约 70min 后跳变到 0 ，因此需要进行修正 */
+		/* Ts 过大直接修正为一个较小的值 */
+		// Ts = Ts > 0.5f ? 1e-3f : Ts;
+		if (Ts <= 0 || Ts > 0.5f)
+			Ts = 1e-3f;
+		/* 通过时间的目标速度虚拟的角度，需要对机械角度归一化为 [0,2PI] */
+		static float openloop_shaft_angle;
+		openloop_shaft_angle = _normalizeAngle(openloop_shaft_angle + Rot2Rad(target_speed) * Ts);
+		/* 计算电角度 */
+		shaftAngle_2_electricalAngle(openloop_shaft_angle);
+
+		/* 电流闭环运行 */
+		// this->target_current = voltage_limit / 3;
+		// this->U_q = _PID_CURRENT->pid_run(this->target_current - this->I_q);
+		// this->U_d = _PID_CURRENT->pid_run(0 - this->I_d);
+		/* 直接设置 I_q 为电压上限，进行输出 */
+		this->U_q = voltage_limit / 3;
+		this->U_d = 0;
+		/* 放在最后了 */
+		// Clark_Park_Inverse(I_q, 0, electrical_angle);
+		openloop_timestamp = now_us;
 	}
-}
-
-/**
- * @brief  速度环运行函数
- * @details 放在周期循环中自动更新运行状态
- * @param
- * @retval
- */
-void foc::speed_run(void)
-{
-	/* 速度频率不能高了，只能放在这里 */
-	this->encoder_update();
-	/* 不进入模式也把数据算出来 */
-	if (this->run_mode == speedMode || this->run_mode == angleMode)
+	/* 速度闭环运行模式 */
+	else if (this->run_mode == speedMode)
 	{
+		/* 放在最上面了 */
+		/* 速度环部分 */
+		// /* 转换输入的速度值 角度值 变为弧度值 */
+		// target_speed = (target_speed / 180.0f) * PI;
+		/* 获取速度角度 */
+		// speed = _encoder->get_speed();
+		// speed = Rad2Rot(speed);
+		/* 速度通过低通滤波器 */
+		// speed = _SPEED_LowPassFilter->run(speed);
+		/* 获得角度值 */
+		// shaft_angle = _encoder->date;
+		/* 转化为电角度 */
+		// shaftAngle_2_electricalAngle();
+
+		/* 控制死区 */
 		float err_temp = this->target_speed - this->speed;
 		if (err_temp > -0.3 && err_temp < 0.3)
 			err_temp = 0;
 		/* 运行pid */
 		this->target_current = _PID_IN->pid_run(err_temp);
+		/* 电流环部分 */
+		this->U_q = _PID_CURRENT->pid_run(this->target_current - this->I_q);
+		this->U_d = _PID_CURRENT->pid_run(0 - this->I_d);
 	}
-	if (this->run_mode == openloop)
+	/* 位置闭环运行模式 */
+	else if (this->run_mode == angleMode)
 	{
+		/* 位置环部分 */
+		/* 获取速度角度 */
+		// speed = _encoder->get_speed();
+		// speed = Rad2Rot(speed);
+		/* 速度通过低通滤波器 */
+		// speed = _SPEED_LowPassFilter->run(speed);
+		/* 转换输入的角度值变为弧度值 */
+		// target_angle = (target_angle / 180.0f) * PI;
+		/* 获取机械角度 */
+		// shaft_angle = _encoder->date;
+		/* 转化为电角度 */
+		// shaftAngle_2_electricalAngle();
+		/* 运行pid,这里是串级pid，先位置外环再速度内环 */
+		this->target_speed = _PID_OUT->pid_run(this->target_angle - Rad2Angle(shaft_angle));
+		/* 速度环部分 */
+		this->target_current = _PID_IN->pid_run(this->target_speed - speed);
+		/* 电流环部分 */
+		this->U_q = _PID_CURRENT->pid_run(this->target_current - this->I_q);
+		this->U_d = _PID_CURRENT->pid_run(0 - this->I_d);
 	}
-}
-
-/**
- * @brief  电流环运行函数
- * @details 放在周期循环中自动更新运行状态
- * @param
- * @retval
- */
-void foc::current_run(void)
-{
-	/* 编码器数据更新在最开始 */
-	// this->_encoder->get_date();	//这个位置采样编码器频率跟不上
-	/* 电流转换 */
-	if (_current_sensor != nullptr)
+	/* 电流闭环运行 */
+	else if (this->run_mode == currentMode)
 	{
-		this->_current_sensor->update(); // 放到定时器中运行了
-		this->Clark_Park(this->_current_sensor->phase_u.data,
-						 this->_current_sensor->phase_v.data,
-						 this->_current_sensor->phase_w.data,
-						 this->electrical_angle);
-
-		/* 电流低通滤波 */
-		// this->I_q = this->_Iq_LowPassFilter->run(this->I_q);
-		// this->I_d = this->_Id_LowPassFilter->run(this->I_d);
-
-		/* 电流闭环 */
-		if (this->run_mode == calMode)
-		{
-			this->U_q = 0;
-			this->U_d = voltage_limit / 10;
-			set_ZeroElectricalAngle(0.0f);
-
-			Clark_Park_Inverse(U_q, U_d, 0); // 克拉克帕克变换
-			SvpwmCtrl();
-			run_UVW_T();
-			return;
-		}
-		else if (this->run_mode == openloop) // 开环强拖
-		{
-			static uint16_t openloop_flag = 0;
-			static float openloop_shaft_angle;
-			openloop_flag++;
-			if (openloop_flag == 10)
-			{
-				uint64_t now_us = MICROS_us(); // 获得从芯片启动开始的微秒时间
-				/* 计算每个 loop 的运行时间 */
-				static uint32_t openloop_timestamp; // 用于计算时间间隔
-				float Ts = (now_us - openloop_timestamp) * 1e-6f;
-
-				/* now_us 会在大约 70min 后跳变到 0 ，因此需要进行修正 */
-				/* Ts 过大直接修正为一个较小的值 */
-				// Ts = Ts > 0.5f ? 1e-3f : Ts;
-				if (Ts <= 0 || Ts > 0.5f)
-					Ts = 1e-3f;
-				/* 通过时间的目标速度虚拟的角度，需要对机械角度归一化为 [0,2PI] */
-
-				openloop_shaft_angle = _normalizeAngle(openloop_shaft_angle + Rot2Rad(target_speed) * Ts);
-				/* 计算电角度 */
-				shaftAngle_2_electricalAngle(openloop_shaft_angle);
-
-				/* 电流闭环运行 */
-				// this->target_current = voltage_limit / 3;
-				// this->U_q = _PID_CURRENT->pid_run(this->target_current - this->I_q);
-				// this->U_d = _PID_CURRENT->pid_run(0 - this->I_d);
-				/* 直接设置 I_q 为电压上限，进行输出 */
-				this->U_q = voltage_limit / 4;
-				this->U_d = 0;
-				/* 放在最后了 */
-				// Clark_Park_Inverse(I_q, 0, electrical_angle);
-				openloop_timestamp = now_us;
-				openloop_flag = 0;
-			}
-			shaftAngle_2_electricalAngle(openloop_shaft_angle);
-		}
-		else // 需要电流闭环下
-		{
-			/* 运行pid,这里是串级pid，运行电流环 */
-			this->U_q = _PID_IQ->pid_run(this->target_current - this->I_q);
-			this->U_d = _PID_ID->pid_run(0 - this->I_d);
-
-			/* 避开电流环，直接速度环进来 */
-			// this->U_q = this->target_current;
-			// this->U_d = 0;
-
-			/* 仅电流环d轴调试使用 */
-			// this->U_q = 0;
-			// this->U_d = _PID_ID->pid_run(this->target_current - this->I_d);
-		}
-
-		Clark_Park_Inverse(U_q, U_d, electrical_angle); // 克拉克帕克变换
-		// Clark_Park_Inverse(0, 4, 0); // 零电角度调试
-
-		SvpwmCtrl();
-		run_UVW_T();
+		/* 获取机械角度 */
+		// shaft_angle = this->_encoder->get_date();
+		/* 转化为电角度 */
+		// shaftAngle_2_electricalAngle();
+		/* 电流采样 */
+		// this->_current_sensor->update();
+		/* 运行 克拉克和帕克 变换 */
+		// this->Clark_Park(this->_current_sensor->phase_u.data,
+		// 				 this->_current_sensor->phase_v.data,
+		// 				 this->_current_sensor->phase_w.data,
+		// 				 this->electrical_angle);
+		/* 运行pid,这里是串级pid，运行电流环 */
+		this->U_q = _PID_CURRENT->pid_run(this->target_current - this->I_q);
+		this->U_d = _PID_CURRENT->pid_run(0 - this->I_d);
 	}
+
+	Clark_Park_Inverse(U_q, U_d, electrical_angle);
 }
 ```
 
-* 根据模式运行对应的运行函数，整个函数放在周期循环中即可
-* 只需要用到 current_run 调用即可
-
-```c++
-//example
-
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-    if (htim == &htim1)
-    {
-        static uint8_t Tick1 = 0;
-        static uint8_t Tick2 = 0;
-        static uint8_t Tick3 = 0;
-        if (__HAL_TIM_IS_TIM_COUNTING_DOWN(&htim1)) // 50us 20k Hz
-        {
-            if (Tick1 < 1) // 1: 100us
-            {
-                Tick1++;
-                motor.current_run(); // 电流闭环一次
-            }
-            else
-            {
-                Tick1 = 0;
-                motor._current_sensor->adc_dma->getonce(); // 采样一次
-            }
-
-            if (Tick2 < 9) // 9:500us
-            {
-                Tick2++;
-            }
-            else
-            {
-                Tick2 = 0;
-                // motor._encoder->get_date(); // 编码器采样
-                // motor.encoder_update();
-               
-            }
-
-            if (Tick3 < 19) // 19:1000us
-            {
-                Tick3++;
-            }
-            else
-            {
-                Tick3 = 0;
-                // motor.run();
-                motor.angle_run();
-                motor.speed_run();
-            }
-        }
-    }}
-```
-
-
+* 根据模式运行对应的运行函数，整个范数放在周期循环中即可
 
 
 
@@ -853,7 +686,7 @@ void foc::set_current_sensor(current_sensor *_current_sensor)
   motor_1612.set_current(0);
   ```
 
-* 周期调用 run 运行函数(见 3.2.4 这里还没有修改)
+* 周期调用 run 运行函数
 
 
 

@@ -58,7 +58,7 @@ stm32Cubemx 驱动库
 >
 > [bsp_servo_cpp](./bsp/Servo_cpp/) " v1.2"
 >
-> [bsp_foc](./bsp/foc_cpp/) " v2.0" "完成电路采样与电流闭环"
+> [bsp_foc](./bsp/foc_cpp/) " v2.1" "修改驱动方式为SVPWM，并优化调用函数"
 
 ### 基于 i2c 的库
 

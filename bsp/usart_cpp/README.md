@@ -97,7 +97,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 
 * <font color=DeepSkyBlue>中断触发</font>：串口空闲 IDLE、DMA fifo半溢出/全溢出 均会触发中断。回调函数内自动根据中断类型实现数据转移
 * <font color=DeepSkyBlue>接受回发</font>：实测通过 DMA 的方式回发会出现半溢出和全溢出时程序运行了第二次回发但是接受不到的情况，怀疑是由于连续两次的DMA发送TX_fifo中的数据没有发送完，第二次不发送，因此这个位置仍然采用中断的方式发送，调试结束后将这句话注释
-* 通过**if (huart->Instance == USART_Debug)**单独判断是否接收是通过PC串口端，避免串口干扰。同时其余串口通道与此串口同时使用时需将其他串口中断回调函数合并在此串口中断回调中
+* 通过**if (huart->Instance == USART_Debug)**单独判断是否接收是通过PC串口端，避免串口干扰。同时其余串口通道与此串口同时使用时需将其他串口中断回调函数合并在此串口中断回调中、、
 * <font color=DeepSkyBlue>自行调用数据时，修改 RxDebug_fifo.read()，读取到的地址为自己的数组，进行后续处理即可</font>
 
 ### 3.3 platformio DMA 重定向函数
