@@ -109,14 +109,17 @@ float encoder::get_speed(void)
 {
 	get_date();
 	/* 计算采样时间 */
-	float Ts = (MICROS_us() - time_prev) * 1e-6; // seconds
-	/* 修复移除的情况 */
+	uint64_t time_now = MICROS_us();
+	float Ts = (float)(MICROS_us() - time_prev) * 1e-6f; // seconds
+	// float Ts = (float)(aaa - time_prev) * 1e-6f; // seconds
+
+	/* 修复溢出的情况 */
 	if (Ts <= 0)
 		Ts = 1e-3f;
 	/* 速度计算 */
 	speed = (date - date_prev) / Ts;
 	/* 更新暂存变量 */
 	date_prev = date;
-	time_prev = Ts;
+	time_prev = time_now;
 	return speed;
 }

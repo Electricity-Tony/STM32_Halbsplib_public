@@ -28,23 +28,20 @@ void bsp_st7735s_init(rotation_t R)
     Delay(100);
     setColor(0, 0, 0);
     fillScreen();
-
 }
-
 
 extern void gcvtf();
 /**
  * @brief  显示运行时间
  * @details
- * @param uint32_t pertime 每次刷新间隔时间 单位 100us
+ * @param uint32_t time_ms 需要显示的运行时间
  * @retval
  */
-void bsp_st7735s_runtimet(uint32_t pertime)
+void bsp_st7735s_runtimet(uint32_t time_ms)
 {
-    static uint32_t breath_counts=0;
-    breath_counts++; // 记录运行呼吸次数
+    static uint32_t breath_counts = 0;
     char show_array[10] = {0};
-    float time64i = breath_counts * pertime * 0.0001; // s
+    float time64i = time_ms * 0.001; // s
 
     sprintf(show_array, "%.3f", time64i);
     // show_array[-1] = 's';
@@ -68,7 +65,7 @@ void bsp_st7735s_runtimet(uint32_t pertime)
     // fillScreen();
     setColor(255, 100, 100);
     setFont(ter_u24b);
-    drawText(0, 0, (const char *) show_array);
+    drawText(0, 0, (const char *)show_array);
     // drawText(0, 0, "111");
     flushBuffer();
 }
